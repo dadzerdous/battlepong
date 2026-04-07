@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Battle Pong RPG</title>
+    <style>
+        body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
+        canvas { background: #000; border: 2px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.5); margin-top: 10px; touch-action: none; }
+        #ui { width: 100%; max-width: 400px; padding: 10px; display: flex; justify-content: space-between; }
+        .stat-box { font-size: 12px; text-transform: uppercase; color: #0f0; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div class="stat-box">Team Bottom: <span id="p1-score">0</span></div>
+        <div class="stat-box">Team Top (AI): <span id="p2-score">0</span></div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script src="game.js"></script>
+</body>
+</html>
