@@ -1,394 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>BATTLE PONG</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
-  <style>
-/* ═══════════════════════════════════════════════════════════
-   BATTLE PONG — style.css
-   Aesthetic: Dark Arcade / CRT Cyberpunk
-   ═══════════════════════════════════════════════════════════ */
-
-:root {
-  --cyan:        #00f5ff;
-  --cyan-dim:    #007a80;
-  --cyan-glow:   rgba(0, 245, 255, 0.35);
-  --red:         #ff2d55;
-  --red-dim:     #80162a;
-  --red-glow:    rgba(255, 45, 85, 0.35);
-  --gold:        #ffd700;
-  --bg:          #080810;
-  --bg2:         #0d0d1a;
-  --panel:       rgba(255,255,255,0.04);
-  --border:      rgba(255,255,255,0.08);
-  --text:        #e0e0e0;
-  --text-dim:    #666;
-  --font-hud:    'Share Tech Mono', monospace;
-  --font-title:  'Orbitron', sans-serif;
-  --hp-color:    #39ff14;
-  --mp-color:    #8888ff;
-  --transition:  0.2s ease;
-}
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-html, body {
-  width: 100%; height: 100%;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-hud);
-  overflow: hidden;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.scanlines {
-  position: absolute; inset: 0; pointer-events: none; z-index: 10;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0,0,0,0.1) 2px,
-    rgba(0,0,0,0.1) 4px
-  );
-}
-
-.screen {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  opacity: 0; pointer-events: none;
-  transition: opacity 0.4s ease;
-  overflow: hidden;
-}
-.screen.active { opacity: 1; pointer-events: all; }
-
-/* ── FACTION SELECT ── */
-#screen-faction { background: radial-gradient(ellipse at 30% 50%, rgba(0,245,255,0.06) 0%, transparent 60%), radial-gradient(ellipse at 70% 50%, rgba(255,45,85,0.06) 0%, transparent 60%), var(--bg); }
-.game-title { font-family: var(--font-title); font-size: clamp(2.8rem, 10vw, 5rem); font-weight: 900; line-height: 0.9; background: linear-gradient(135deg, var(--cyan) 0%, #fff 50%, var(--red) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 30px rgba(0,245,255,0.4)); text-align: center; }
-.faction-cards { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
-.faction-card { width: 165px; padding: 20px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; text-align: center; cursor: pointer; transition: 0.2s; }
-.faction-card:hover { transform: translateY(-4px); border-color: var(--cyan); }
-
-/* ── STATS ── */
-#screen-stats { background: var(--bg2); }
-.stats-content { width: min(400px, 95vw); }
-.stat-row { display: grid; grid-template-columns: 4rem 1fr 2rem; align-items: center; gap: 10px; margin-bottom: 10px; }
-.stat-slider { -webkit-appearance: none; height: 4px; background: var(--border); border-radius: 2px; }
-.stat-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--cyan); border: 2px solid #000; }
-
-/* ── GAME HUD ── */
-#hud-top { width: 100%; display: grid; grid-template-columns: 1fr auto 1fr; padding: 10px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.8); }
-.hud-score { font-family: var(--font-title); font-size: 1.5rem; font-weight: 900; }
-.bar-track { height: 6px; background: #222; border-radius: 3px; overflow: hidden; margin: 2px 0; width: 100px; }
-.bar-fill { height: 100%; width: 100%; transition: width 0.3s; }
-.hp-fill { background: var(--hp-color); }
-.mp-fill { background: var(--mp-color); }
-
-canvas { display: block; background: #000; }
-
-/* ── CONTROLS ── */
-#mobile-controls { width: 100%; display: flex; justify-content: space-between; padding: 15px; background: #0a0a10; border-top: 1px solid #333; }
-.ctrl-btn { width: 70px; height: 70px; background: #1a1a25; border: 2px solid #444; border-radius: 12px; color: #fff; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; }
-.ctrl-btn.active { border-color: var(--cyan); box-shadow: 0 0 15px var(--cyan-glow); }
-.ability-ctrl { border-color: var(--gold); color: var(--gold); }
-
-/* ── UPGRADES ── */
-.upgrade-cards { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-.upgrade-card { width: 140px; padding: 15px; background: #1a1a20; border: 1px solid var(--border); border-radius: 8px; text-align: center; cursor: pointer; }
-.upgrade-card:hover { border-color: var(--cyan); transform: scale(1.05); }
-
-</style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>BATTLE PONG</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
 </head>
 <body>
+    <div class="scanlines"></div>
 
-  <div class="scanlines"></div>
-
-  <div id="screen-faction" class="screen active">
-    <h1 class="game-title">BATTLE<br/>PONG</h1>
-    <div class="faction-cards">
-      <div class="faction-card" id="card-cyan" data-faction="cyan">
-        <div style="color:var(--cyan); font-size: 2rem;">◈</div>
-        <div style="font-family:var(--font-title); color:var(--cyan);">CYAN</div>
-        <p style="font-size:0.7rem; color:#888;">Speed & Precision</p>
-      </div>
-      <div class="faction-card" id="card-red" data-faction="red">
-        <div style="color:var(--red); font-size: 2rem;">◆</div>
-        <div style="font-family:var(--font-title); color:var(--red);">RED</div>
-        <p style="font-size:0.7rem; color:#888;">Power & Impact</p>
-      </div>
+    <div id="screen-faction" class="screen active">
+        <div class="faction-content">
+            <div class="title-block">
+                <div class="title-eyebrow">⚡ SEASON 1 ⚡</div>
+                <h1 class="game-title">BATTLE<br/>PONG</h1>
+                <div class="title-sub">ROGUELITE FACTION WAR</div>
+            </div>
+            <div class="faction-prompt">CHOOSE YOUR FACTION</div>
+            <div class="faction-cards">
+                <div class="faction-card" id="card-cyan" data-faction="cyan">
+                    <div class="faction-glow cyan-glow"></div>
+                    <div class="faction-icon">◈</div>
+                    <div class="faction-name">CYAN</div>
+                    <button class="join-btn cyan-btn">JOIN VANGUARD</button>
+                </div>
+                <div class="faction-vs">VS</div>
+                <div class="faction-card" id="card-red" data-faction="red">
+                    <div class="faction-glow red-glow"></div>
+                    <div class="faction-icon">◆</div>
+                    <div class="faction-name">RED</div>
+                    <button class="join-btn red-btn">JOIN DOMINION</button>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <div id="screen-stats" class="screen">
-    <div class="stats-content">
-      <h2 style="text-align:center; margin-bottom:15px; font-family:var(--font-title);">ALLOCATE POWER</h2>
-      <p style="text-align:center; font-size:0.8rem; color:var(--gold);">POINTS: <span id="points-left">200</span></p>
-      <div id="stat-sliders" style="margin: 20px 0;"></div>
-      <button class="ctrl-btn" id="confirm-stats" style="width:100%; height:50px; font-size:1rem; border-color:var(--cyan); color:var(--cyan);">START MISSION</button>
+    <div id="screen-stats" class="screen">
+        <div class="stats-content">
+            <h2 class="screen-title">BUILD YOUR FIGHTER</h2>
+            <div class="points-remaining">POINTS REMAINING: <span id="points-left">200</span></div>
+            <div class="stat-sliders" id="stat-sliders"></div>
+            <div class="stat-archetypes">
+                <button class="arch-btn" data-arch="cannon">Glass Cannon</button>
+                <button class="arch-btn" data-arch="wall">The Wall</button>
+                <button class="arch-btn" data-arch="speed">Speedster</button>
+            </div>
+            <button class="confirm-btn" id="confirm-stats">ENTER THE ARENA →</button>
+        </div>
     </div>
-  </div>
 
-  <div id="screen-game" class="screen">
-    <div id="hud-top">
-      <div class="hud-left">
-        <div id="p-name" style="font-size:0.6rem; color:var(--cyan);">VANGUARD</div>
-        <div class="hud-score" id="score-player" style="color:var(--cyan);">0</div>
-        <div class="bar-track"><div class="bar-fill hp-fill" id="hp-bar"></div></div>
-        <div class="bar-track"><div class="bar-fill mp-fill" id="mp-bar"></div></div>
-      </div>
-      <div style="text-align:center; font-size:0.7rem; padding-top:10px;">VS</div>
-      <div class="hud-right" style="text-align:right;">
-        <div id="e-name" style="font-size:0.6rem; color:var(--red);">DOMINION</div>
-        <div class="hud-score" id="score-enemy" style="color:var(--red);">0</div>
-        <div class="bar-track" style="margin-left:auto;"><div class="bar-fill hp-fill" id="ehp-bar"></div></div>
-        <div class="bar-track" style="margin-left:auto;"><div class="bar-fill mp-fill" id="emp-bar"></div></div>
-      </div>
+    <div id="screen-game" class="screen">
+        <div id="hud-top">
+            <div class="hud-side hud-left" id="hud-player">
+                <div class="hud-faction-label" id="hud-faction-name">--</div>
+                <div class="hud-score" id="score-player">0</div>
+                <div class="hud-bars">
+                    <div class="bar-row"><div class="bar-track"><div class="bar-fill hp-fill" id="hp-bar"></div></div></div>
+                </div>
+                <div class="hud-xp-row">XP <span id="xp-val">0</span> · LVL <span id="lvl-val">1</span></div>
+            </div>
+            <div class="hud-center">
+                <div class="round-label">ROUND <span id="round-num">1</span></div>
+                <div class="vs-divider">⚡</div>
+            </div>
+            <div class="hud-side hud-right" id="hud-enemy">
+                <div class="hud-faction-label" id="hud-enemy-name">--</div>
+                <div class="hud-score" id="score-enemy">0</div>
+                <div class="bar-row"><div class="bar-track"><div class="bar-fill hp-fill" id="enemy-hp-bar"></div></div></div>
+            </div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+        <div id="mobile-controls">
+            <button class="ctrl-btn" id="btn-move-left">◀</button>
+            <button class="ctrl-btn ability-ctrl" id="btn-ability">⚡</button>
+            <button class="ctrl-btn" id="btn-move-right">▶</button>
+        </div>
     </div>
-    <canvas id="gameCanvas"></canvas>
-    <div id="mobile-controls">
-      <button class="ctrl-btn" id="btn-left">◀</button>
-      <button class="ctrl-btn ability-ctrl" id="btn-ability">⚡</button>
-      <button class="ctrl-btn" id="btn-right">▶</button>
+
+    <div id="screen-upgrade" class="screen">
+        <div class="upgrade-content">
+            <h2 class="upgrade-title">CHOOSE YOUR POWER</h2>
+            <div class="upgrade-cards" id="upgrade-cards"></div>
+        </div>
     </div>
-  </div>
 
-  <div id="screen-upgrade" class="screen">
-    <h2 style="font-family:var(--font-title); margin-bottom:20px;">CHOOSE REWARD</h2>
-    <div class="upgrade-cards" id="upgrade-cards"></div>
-  </div>
-
-  <script>
-'use strict';
-
-const STAT_BUDGET = 200;
-const STAT_MAX = 80;
-const BALL_BASE_SPD = 4.5;
-
-const STAT_DEFS = [
-  { key: 'POW', label: 'POWER',  desc: 'Hit Speed' },
-  { key: 'SPD', label: 'SPEED',  desc: 'Movement' },
-  { key: 'SIZ', label: 'SIZE',   desc: 'Paddle W' },
-  { key: 'INT', label: 'INTEL',  desc: 'Mana/CD' }
-];
-
-let GS = {
-  phase: 'faction',
-  faction: 'cyan',
-  playerStats: { POW:50, SPD:50, SIZ:50, INT:50 },
-  player: null, enemy: null, ball: null,
-  input: { left: false, right: false }
-};
-
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(`screen-${id}`).classList.add('active');
-  GS.phase = id;
-}
-
-// Fixed Resize: Calculates space between HUD and Controls
-function resize() {
-  const hud = document.getElementById('hud-top');
-  const controls = document.getElementById('mobile-controls');
-  
-  // Calculate available height
-  const availableHeight = window.innerHeight - hud.offsetHeight - controls.offsetHeight;
-  
-  canvas.width = Math.min(window.innerWidth, 500);
-  canvas.height = Math.max(availableHeight, 300); // Minimum 300px height safety
-  
-  console.log("Canvas Resized:", canvas.width, "x", canvas.height);
-}
-
-// --- PHYSICS ---
-function initBall(dir = 1) {
-  return {
-    x: canvas.width / 2,
-    y: canvas.height / 2,
-    vx: (Math.random() - 0.5) * 6,
-    vy: dir * BALL_BASE_SPD,
-    r: 7
-  };
-}
-
-function createEntity(stats, color, yPosition) {
-  return {
-    x: (canvas.width / 2) - ( (60 + stats.SIZ * 0.6) / 2 ), // Center it
-    y: yPosition,
-    w: 60 + (stats.SIZ * 0.6),
-    h: 12,
-    speed: 3 + (stats.SPD * 0.12),
-    hp: 3, maxHp: 3,
-    mp: 50, maxMp: 50 + (stats.INT * 1.5),
-    color: color,
-    score: 0
-  };
-}
-
-function startMatch() {
-  showScreen('game');
-  
-  // CRITICAL: Wait for CSS transition and DOM to catch up
-  setTimeout(() => {
-    resize();
-    
-    const pColor = GS.faction === 'cyan' ? '#00f5ff' : '#ff2d55';
-    const eColor = GS.faction === 'cyan' ? '#ff2d55' : '#00f5ff';
-    
-    // Spawn player at bottom, enemy at top
-    GS.player = createEntity(GS.playerStats, pColor, canvas.height - 40);
-    GS.enemy = createEntity({SIZ:40, SPD:40}, eColor, 40);
-    GS.ball = initBall(1);
-    
-    console.log("Arena Loaded. Player at Y:", GS.player.y);
-  }, 100);
-}
-
-// --- GAME LOOP ---
-function update() {
-  if (GS.phase !== 'game' || !GS.player) return;
-  
-  const p = GS.player;
-  const e = GS.enemy;
-  const b = GS.ball;
-
-  // Player Movement
-  if (GS.input.left) p.x -= p.speed;
-  if (GS.input.right) p.x += p.speed;
-  p.x = Math.max(0, Math.min(canvas.width - p.w, p.x));
-
-  // AI Movement
-  let aiEase = 0.07;
-  let targetX = b.x - (e.w / 2);
-  e.x += (targetX - e.x) * aiEase;
-  e.x = Math.max(0, Math.min(canvas.width - e.w, e.x));
-
-  // Ball
-  b.x += b.vx;
-  b.y += b.vy;
-
-  // Wall bounce
-  if (b.x < b.r || b.x > canvas.width - b.r) b.vx *= -1;
-
-  // Paddle Collisions (Anti-stick logic)
-  if (checkHit(b, p)) {
-    b.vy = -Math.abs(b.vy) - 0.2; // Move UP
-    b.y = p.y - b.r - 2; // Nudge out
-    let hitIdx = (b.x - (p.x + p.w/2)) / (p.w/2);
-    b.vx = hitIdx * 7;
-    p.mp = Math.min(p.maxMp, p.mp + 5);
-  }
-  
-  if (checkHit(b, e)) {
-    b.vy = Math.abs(b.vy) + 0.2; // Move DOWN
-    b.y = e.y + e.h + b.r + 2; // Nudge out
-    let hitIdx = (b.x - (e.x + e.w/2)) / (e.w/2);
-    b.vx = hitIdx * 7;
-  }
-
-  // Scoring
-  if (b.y < 0) { p.score++; showUpgrade(); }
-  if (b.y > canvas.height) { e.score++; GS.ball = initBall(-1); }
-
-  updateHUD();
-}
-
-function checkHit(b, p) {
-  return b.x > p.x && b.x < p.x + p.w && 
-         b.y + b.r > p.y && b.y - b.r < p.y + p.h;
-}
-
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (GS.phase !== 'game' || !GS.player) return;
-
-  // Ball with Glow
-  ctx.shadowBlur = 10;
-  ctx.shadowColor = "white";
-  ctx.fillStyle = "white";
-  ctx.beginPath(); 
-  ctx.arc(GS.ball.x, GS.ball.y, GS.ball.r, 0, Math.PI*2); 
-  ctx.fill();
-  ctx.shadowBlur = 0;
-
-  // Paddles
-  ctx.fillStyle = GS.player.color;
-  ctx.fillRect(GS.player.x, GS.player.y, GS.player.w, GS.player.h);
-  ctx.fillStyle = GS.enemy.color;
-  ctx.fillRect(GS.enemy.x, GS.enemy.y, GS.enemy.w, GS.enemy.h);
-}
-
-function updateHUD() {
-  document.getElementById('hp-bar').style.width = (GS.player.hp/GS.player.maxHp*100)+'%';
-  document.getElementById('mp-bar').style.width = (GS.player.mp/GS.player.maxMp*100)+'%';
-  document.getElementById('score-player').innerText = GS.player.score;
-  document.getElementById('score-enemy').innerText = GS.enemy.score;
-}
-
-// --- SCREEN INTERACTIONS ---
-document.getElementById('card-cyan').onclick = () => { GS.faction='cyan'; showScreen('stats'); buildStats(); };
-document.getElementById('card-red').onclick = () => { GS.faction='red'; showScreen('stats'); buildStats(); };
-
-function buildStats() {
-  const container = document.getElementById('stat-sliders');
-  container.innerHTML = '';
-  STAT_DEFS.forEach(d => {
-    const row = document.createElement('div');
-    row.className = 'stat-row';
-    row.innerHTML = `
-        <label style="font-size:0.6rem;">${d.key}</label>
-        <input type="range" class="stat-slider" data-key="${d.key}" min="10" max="80" value="50">
-        <span id="val-${d.key}" style="font-size:0.8rem; color:var(--gold)">50</span>`;
-    container.appendChild(row);
-    
-    row.querySelector('input').oninput = (e) => {
-        GS.playerStats[d.key] = parseInt(e.target.value);
-        document.getElementById(`val-${d.key}`).innerText = e.target.value;
-        // Basic budget check logic could go here
-    };
-  });
-}
-
-document.getElementById('confirm-stats').onclick = () => {
-  startMatch();
-};
-
-// --- CONTROLS ---
-const setupBtn = (id, key) => {
-    const el = document.getElementById(id);
-    el.onmousedown = el.ontouchstart = (e) => { e.preventDefault(); GS.input[key] = true; el.classList.add('active'); };
-    el.onmouseup = el.onmouseleave = el.ontouchend = () => { GS.input[key] = false; el.classList.remove('active'); };
-};
-setupBtn('btn-left', 'left');
-setupBtn('btn-right', 'right');
-
-function showUpgrade() {
-  GS.phase = 'upgrade';
-  showScreen('upgrade');
-  const container = document.getElementById('upgrade-cards');
-  container.innerHTML = '';
-  const opts = [
-      { n: 'Speed Boost', f: () => GS.player.speed += 1.5 },
-      { n: 'Size Up', f: () => GS.player.w += 20 },
-      { n: 'Repair HP', f: () => GS.player.hp = GS.player.maxHp }
-  ];
-  opts.forEach(opt => {
-    const div = document.createElement('div');
-    div.className = 'upgrade-card';
-    div.innerText = opt.n;
-    div.onclick = () => { opt.f(); GS.ball = initBall(1); showScreen('game'); };
-    container.appendChild(div);
-  });
-}
-
-function loop() { update(); draw(); requestAnimationFrame(loop); }
-loop();
-  </script>
+    <script src="game.js"></script>
 </body>
 </html>
