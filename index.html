@@ -5,19 +5,157 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Battle Pong RPG</title>
     <style>
-        body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
-        canvas { background: #000; border: 2px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.5); margin-top: 10px; touch-action: none; }
-        #ui { width: 100%; max-width: 400px; padding: 10px; display: flex; justify-content: space-between; }
-        .stat-box { font-size: 12px; text-transform: uppercase; color: #0f0; }
+        body { margin: 0; background: #1a1122; color: #00ffcc; font-family: 'Courier New', Courier, monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
+        canvas { background: #050505; border: 4px solid #333; box-shadow: 0 0 30px rgba(0,255,200,0.2); margin-top: 10px; touch-action: none; border-radius: 8px; }
+        #ui { width: 100%; max-width: 400px; padding: 15px; display: flex; justify-content: space-between; font-weight: bold; text-shadow: 0 0 5px #00ffcc; }
+        .controls-hint { font-size: 10px; color: #888; margin-top: 5px; }
     </style>
 </head>
 <body>
-    <div id="ui">
-        <div class="stat-box">Team Bottom: <span id="p1-score">0</span></div>
-        <div class="stat-box">Team Top (AI): <span id="p2-score">0</span></div>
-    </div>
-    <canvas id="gameCanvas"></canvas>
 
-    <script src="game.js"></script>
+    <div id="ui">
+        <div>PLAYER XP: <span id="xp">0</span></div>
+        <div>LEVEL: <span id="lvl">1</span></div>
+    </div>
+    
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="controls-hint">Tap Left/Right or Use Arrow Keys</div>
+    <div id="debug" style="font-size: 10px; color: #444; margin-top: 10px;">Avg Input: 0</div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Scale canvas for mobile
+        canvas.width = Math.min(window.innerWidth - 30, 400);
+        canvas.height = window.innerHeight * 0.65;
+
+        // --- GAME STATE ---
+        const game = {
+            ball: { x: canvas.width/2, y: canvas.height/2, vx: 4, vy: 4, r: 8 },
+            p1: { // User/Bottom
+                x: canvas.width/2 - 40, y: canvas.height - 30, w: 80, h: 12,
+                baseSpeed: 10, xp: 0, lvl: 1, color: '#00ffcc'
+            },
+            p2: { // AI/Top
+                x: canvas.width/2 - 40, y: 20, w: 80, h: 12,
+                speed: 3, color: '#ff4444'
+            },
+            commandBuffer: []
+        };
+
+        // --- INPUTS ---
+        window.addEventListener('keydown', e => {
+            if (e.key === "ArrowLeft") game.commandBuffer.push(-1);
+            if (e.key === "ArrowRight") game.commandBuffer.push(1);
+        });
+
+        canvas.addEventListener('touchstart', e => {
+            const touchX = e.touches[0].clientX;
+            const side = touchX < window.innerWidth / 2 ? -1 : 1;
+            game.commandBuffer.push(side);
+        });
+
+        // --- GAME LOGIC ---
+        function update() {
+            // 1. Process "Twitch-style" Average Movement
+            let moveAvg = 0;
+            if (game.commandBuffer.length > 0) {
+                const sum = game.commandBuffer.reduce((a, b) => a + b, 0);
+                moveAvg = sum / game.commandBuffer.length;
+                game.commandBuffer = []; // Clear for next frame
+            }
+            document.getElementById('debug').innerText = `Avg Input: ${moveAvg.toFixed(2)}`;
+
+            // 2. Apply RPG Stats (0.05x bonus per level)
+            const speedBonus = 1 + (game.p1.lvl * 0.05);
+            game.p1.x += moveAvg * (game.p1.baseSpeed * speedBonus);
+
+            // Boundary checks
+            game.p1.x = Math.max(0, Math.min(canvas.width - game.p1.w, game.p1.x));
+
+            // 3. Move Ball
+            game.ball.x += game.ball.vx;
+            game.ball.y += game.ball.vy;
+
+            // 4. Wall Bounce
+            if (game.ball.x < 0 || game.ball.x > canvas.width) game.ball.vx *= -1;
+
+            // 5. AI Logic (Smooth follow)
+            let aiEase = 0.08;
+            game.p2.x += (game.ball.x - (game.p2.x + game.p2.w/2)) * aiEase;
+
+            // 6. Collisions
+            handleCollision(game.p1);
+            handleCollision(game.p2);
+
+            // 7. Scoring & XP
+            if (game.ball.y < 0) { // Player won point
+                game.p1.xp += 10;
+                checkLevelUp();
+                resetBall();
+            }
+            if (game.ball.y > canvas.height) { // AI won point
+                resetBall();
+            }
+        }
+
+        function handleCollision(p) {
+            if (game.ball.x > p.x && game.ball.x < p.x + p.w) {
+                if (Math.abs(game.ball.y - p.y) < p.h) {
+                    game.ball.vy *= -1.05; // Slightly speed up
+                    // Angle ball based on where it hit paddle
+                    let diff = game.ball.x - (p.x + p.w/2);
+                    game.ball.vx = diff * 0.2;
+                }
+            }
+        }
+
+        function checkLevelUp() {
+            game.p1.lvl = Math.floor(game.p1.xp / 50) + 1;
+            document.getElementById('xp').innerText = game.p1.xp;
+            document.getElementById('lvl').innerText = game.p1.lvl;
+        }
+
+        function resetBall() {
+            game.ball.x = canvas.width / 2;
+            game.ball.y = canvas.height / 2;
+            game.ball.vx = (Math.random() - 0.5) * 8;
+            game.ball.vy = 4;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Neon Glow
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = game.p1.color;
+
+            // Paddles
+            ctx.fillStyle = game.p1.color;
+            ctx.fillRect(game.p1.x, game.p1.y, game.p1.w, game.p1.h);
+            
+            ctx.shadowColor = game.p2.color;
+            ctx.fillStyle = game.p2.color;
+            ctx.fillRect(game.p2.x, game.p2.y, game.p2.w, game.p2.h);
+            
+            // Ball
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "white";
+            ctx.fillStyle = "white";
+            ctx.beginPath();
+            ctx.arc(game.ball.x, game.ball.y, game.ball.r, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
 </body>
 </html>
