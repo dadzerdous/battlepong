@@ -190,13 +190,20 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(`screen-${id}`).classList.add('active');
   GS.phase = id;
-  if(id === 'game') resize();
 }
 
+// Fixed Resize: Calculates space between HUD and Controls
 function resize() {
-  const h = window.innerHeight - document.getElementById('hud-top').offsetHeight - document.getElementById('mobile-controls').offsetHeight;
+  const hud = document.getElementById('hud-top');
+  const controls = document.getElementById('mobile-controls');
+  
+  // Calculate available height
+  const availableHeight = window.innerHeight - hud.offsetHeight - controls.offsetHeight;
+  
   canvas.width = Math.min(window.innerWidth, 500);
-  canvas.height = h;
+  canvas.height = Math.max(availableHeight, 300); // Minimum 300px height safety
+  
+  console.log("Canvas Resized:", canvas.width, "x", canvas.height);
 }
 
 // --- PHYSICS ---
@@ -210,13 +217,13 @@ function initBall(dir = 1) {
   };
 }
 
-function createEntity(stats, color, y) {
+function createEntity(stats, color, yPosition) {
   return {
-    x: canvas.width/2 - 40,
-    y: y,
+    x: (canvas.width / 2) - ( (60 + stats.SIZ * 0.6) / 2 ), // Center it
+    y: yPosition,
     w: 60 + (stats.SIZ * 0.6),
-    h: 10,
-    speed: 3 + (stats.SPD * 0.08),
+    h: 12,
+    speed: 3 + (stats.SPD * 0.12),
     hp: 3, maxHp: 3,
     mp: 50, maxMp: 50 + (stats.INT * 1.5),
     color: color,
@@ -224,8 +231,29 @@ function createEntity(stats, color, y) {
   };
 }
 
+function startMatch() {
+  showScreen('game');
+  
+  // CRITICAL: Wait for CSS transition and DOM to catch up
+  setTimeout(() => {
+    resize();
+    
+    const pColor = GS.faction === 'cyan' ? '#00f5ff' : '#ff2d55';
+    const eColor = GS.faction === 'cyan' ? '#ff2d55' : '#00f5ff';
+    
+    // Spawn player at bottom, enemy at top
+    GS.player = createEntity(GS.playerStats, pColor, canvas.height - 40);
+    GS.enemy = createEntity({SIZ:40, SPD:40}, eColor, 40);
+    GS.ball = initBall(1);
+    
+    console.log("Arena Loaded. Player at Y:", GS.player.y);
+  }, 100);
+}
+
+// --- GAME LOOP ---
 function update() {
-  if (GS.phase !== 'game') return;
+  if (GS.phase !== 'game' || !GS.player) return;
+  
   const p = GS.player;
   const e = GS.enemy;
   const b = GS.ball;
@@ -236,8 +264,9 @@ function update() {
   p.x = Math.max(0, Math.min(canvas.width - p.w, p.x));
 
   // AI Movement
-  let aiEase = 0.08;
-  e.x += (b.x - (e.x + e.w/2)) * aiEase;
+  let aiEase = 0.07;
+  let targetX = b.x - (e.w / 2);
+  e.x += (targetX - e.x) * aiEase;
   e.x = Math.max(0, Math.min(canvas.width - e.w, e.x));
 
   // Ball
@@ -245,16 +274,25 @@ function update() {
   b.y += b.vy;
 
   // Wall bounce
-  if (b.x < 0 || b.x > canvas.width) b.vx *= -1;
+  if (b.x < b.r || b.x > canvas.width - b.r) b.vx *= -1;
 
-  // Paddle Collisions
+  // Paddle Collisions (Anti-stick logic)
   if (checkHit(b, p)) {
-    reflect(b, p, -1);
-    p.mp = Math.min(p.maxMp, p.mp + 10);
+    b.vy = -Math.abs(b.vy) - 0.2; // Move UP
+    b.y = p.y - b.r - 2; // Nudge out
+    let hitIdx = (b.x - (p.x + p.w/2)) / (p.w/2);
+    b.vx = hitIdx * 7;
+    p.mp = Math.min(p.maxMp, p.mp + 5);
   }
-  if (checkHit(b, e)) reflect(b, e, 1);
+  
+  if (checkHit(b, e)) {
+    b.vy = Math.abs(b.vy) + 0.2; // Move DOWN
+    b.y = e.y + e.h + b.r + 2; // Nudge out
+    let hitIdx = (b.x - (e.x + e.w/2)) / (e.w/2);
+    b.vx = hitIdx * 7;
+  }
 
-  // Score
+  // Scoring
   if (b.y < 0) { p.score++; showUpgrade(); }
   if (b.y > canvas.height) { e.score++; GS.ball = initBall(-1); }
 
@@ -262,23 +300,22 @@ function update() {
 }
 
 function checkHit(b, p) {
-  return b.x > p.x && b.x < p.x + p.w && Math.abs(b.y - p.y) < p.h + b.r;
-}
-
-function reflect(b, p, dir) {
-  let hitIdx = (b.x - (p.x + p.w/2)) / (p.w/2);
-  b.vx = hitIdx * 6;
-  b.vy = dir * (Math.abs(b.vy) + 0.2);
-  b.y = p.y + (dir * (p.h + b.r + 2)); // Nudge out
+  return b.x > p.x && b.x < p.x + p.w && 
+         b.y + b.r > p.y && b.y - b.r < p.y + p.h;
 }
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!GS.player) return;
+  if (GS.phase !== 'game' || !GS.player) return;
 
-  // Ball
+  // Ball with Glow
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = "white";
   ctx.fillStyle = "white";
-  ctx.beginPath(); ctx.arc(GS.ball.x, GS.ball.y, GS.ball.r, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); 
+  ctx.arc(GS.ball.x, GS.ball.y, GS.ball.r, 0, Math.PI*2); 
+  ctx.fill();
+  ctx.shadowBlur = 0;
 
   // Paddles
   ctx.fillStyle = GS.player.color;
@@ -294,7 +331,7 @@ function updateHUD() {
   document.getElementById('score-enemy').innerText = GS.enemy.score;
 }
 
-// --- SCREENS ---
+// --- SCREEN INTERACTIONS ---
 document.getElementById('card-cyan').onclick = () => { GS.faction='cyan'; showScreen('stats'); buildStats(); };
 document.getElementById('card-red').onclick = () => { GS.faction='red'; showScreen('stats'); buildStats(); };
 
@@ -302,54 +339,56 @@ function buildStats() {
   const container = document.getElementById('stat-sliders');
   container.innerHTML = '';
   STAT_DEFS.forEach(d => {
-    container.innerHTML += `
-      <div class="stat-row">
+    const row = document.createElement('div');
+    row.className = 'stat-row';
+    row.innerHTML = `
         <label style="font-size:0.6rem;">${d.key}</label>
         <input type="range" class="stat-slider" data-key="${d.key}" min="10" max="80" value="50">
-        <span id="val-${d.key}">50</span>
-      </div>`;
+        <span id="val-${d.key}" style="font-size:0.8rem; color:var(--gold)">50</span>`;
+    container.appendChild(row);
+    
+    row.querySelector('input').oninput = (e) => {
+        GS.playerStats[d.key] = parseInt(e.target.value);
+        document.getElementById(`val-${d.key}`).innerText = e.target.value;
+        // Basic budget check logic could go here
+    };
   });
 }
 
 document.getElementById('confirm-stats').onclick = () => {
-  GS.player = createEntity(GS.playerStats, GS.faction === 'cyan' ? '#00f5ff' : '#ff2d55', canvas.height - 30);
-  GS.enemy = createEntity({SIZ:40, SPD:40}, GS.faction === 'cyan' ? '#ff2d55' : '#00f5ff', 20);
-  GS.ball = initBall(1);
-  showScreen('game');
+  startMatch();
 };
 
 // --- CONTROLS ---
-const btnL = document.getElementById('btn-left');
-const btnR = document.getElementById('btn-right');
-const handleInput = (key, val) => { GS.input[key] = val; };
-
-btnL.ontouchstart = () => handleInput('left', true);
-btnL.ontouchend = () => handleInput('left', false);
-btnR.ontouchstart = () => handleInput('right', true);
-btnR.ontouchend = () => handleInput('right', false);
+const setupBtn = (id, key) => {
+    const el = document.getElementById(id);
+    el.onmousedown = el.ontouchstart = (e) => { e.preventDefault(); GS.input[key] = true; el.classList.add('active'); };
+    el.onmouseup = el.onmouseleave = el.ontouchend = () => { GS.input[key] = false; el.classList.remove('active'); };
+};
+setupBtn('btn-left', 'left');
+setupBtn('btn-right', 'right');
 
 function showUpgrade() {
   GS.phase = 'upgrade';
   showScreen('upgrade');
   const container = document.getElementById('upgrade-cards');
   container.innerHTML = '';
-  ['+10 Speed', '+20 Size', 'Full Mana'].forEach(upg => {
+  const opts = [
+      { n: 'Speed Boost', f: () => GS.player.speed += 1.5 },
+      { n: 'Size Up', f: () => GS.player.w += 20 },
+      { n: 'Repair HP', f: () => GS.player.hp = GS.player.maxHp }
+  ];
+  opts.forEach(opt => {
     const div = document.createElement('div');
     div.className = 'upgrade-card';
-    div.innerText = upg;
-    div.onclick = () => { 
-        if(upg.includes('Speed')) GS.player.speed += 1;
-        if(upg.includes('Size')) GS.player.w += 15;
-        GS.ball = initBall(1);
-        showScreen('game'); 
-    };
+    div.innerText = opt.n;
+    div.onclick = () => { opt.f(); GS.ball = initBall(1); showScreen('game'); };
     container.appendChild(div);
   });
 }
 
 function loop() { update(); draw(); requestAnimationFrame(loop); }
 loop();
-
   </script>
 </body>
 </html>
