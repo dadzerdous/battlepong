@@ -3,46 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Battle Pong RPG</title>
+    <title>Battle Pong: Faction War</title>
     <style>
-        :root { --neon: #00ffcc; --danger: #ff4444; }
-        body { margin: 0; background: #0a0a0c; color: var(--neon); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; display: flex; flex-direction: column; align-items: center; user-select: none; }
+        :root { --cyan: #00f2ff; --red: #ff3366; --bg: #0d0d12; }
+        body { margin: 0; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; display: flex; flex-direction: column; align-items: center; user-select: none; }
         
-        #ui-top { width: 100%; max-width: 400px; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; }
-        
-        canvas { background: #000; border: 2px solid #333; border-radius: 10px; touch-action: none; }
+        /* Faction Selection Screen */
+        #login-screen { position: absolute; inset: 0; background: var(--bg); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .faction-btn { width: 200px; padding: 20px; margin: 10px; border: 3px solid; border-radius: 12px; cursor: pointer; font-weight: bold; text-align: center; font-size: 1.2rem; }
+        #pick-cyan { border-color: var(--cyan); color: var(--cyan); }
+        #pick-red { border-color: var(--red); color: var(--red); }
 
-        /* Controls Section */
-        #controls { width: 100%; max-width: 400px; display: flex; gap: 10px; padding: 20px; box-sizing: border-box; }
-        .btn { flex: 1; height: 80px; background: #1a1a1a; border: 2px solid var(--neon); color: var(--neon); border-radius: 10px; 
-               display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; cursor: pointer; }
-        .btn:active { background: var(--neon); color: #000; }
+        #ui-top { width: 90%; display: flex; justify-content: space-between; padding: 15px 0; font-family: monospace; }
+        canvas { background: #000; border: 1px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+
+        /* Controls: Small, 2-key width buttons at the bottom corners */
+        #control-bar { width: 100%; max-width: 450px; position: relative; height: 120px; margin-top: 10px; }
+        .btn { position: absolute; bottom: 20px; width: 70px; height: 70px; background: #222; border: 2px solid #444; border-radius: 10px; 
+               display: flex; align-items: center; justify-content: center; font-size: 24px; color: #666; touch-action: none; }
+        #btn-left { left: 20px; }
+        #btn-right { right: 20px; }
+        .btn.active { border-color: white; color: white; background: #333; }
 
         /* Upgrade Overlay */
-        #overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); 
-                    flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
-        .upgrade-card { width: 250px; padding: 15px; margin: 10px; background: #222; border: 1px solid var(--neon); border-radius: 8px; 
-                        text-align: center; cursor: pointer; transition: 0.2s; }
-        .upgrade-card:hover { background: #333; transform: scale(1.05); }
+        #overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.9); flex-direction: column; align-items: center; justify-content: center; z-index: 50; }
+        .card { width: 220px; padding: 15px; margin: 8px; background: #1a1a1a; border: 1px solid #00f2ff; border-radius: 8px; text-align: center; cursor: pointer; }
     </style>
 </head>
 <body>
 
+    <div id="login-screen">
+        <h1>BATTLE PONG</h1>
+        <p>CHOOSE YOUR SIDE</p>
+        <div id="pick-cyan" class="faction-btn">JOIN CYAN</div>
+        <div id="pick-red" class="faction-btn">JOIN RED</div>
+    </div>
+
     <div id="ui-top">
+        <div id="faction-label">TEAM: --</div>
         <div>XP: <span id="xp-val">0</span></div>
         <div>LVL: <span id="lvl-val">1</span></div>
-        <div>STREAK: <span id="streak-val">0</span></div>
     </div>
     
     <canvas id="gameCanvas"></canvas>
 
-    <div id="controls">
+    <div id="control-bar">
         <div class="btn" id="btn-left">◀</div>
         <div class="btn" id="btn-right">▶</div>
     </div>
 
     <div id="overlay">
-        <h2>SELECT UPGRADE</h2>
+        <h2>RANK UP: CHOOSE PERK</h2>
         <div id="upgrade-list"></div>
     </div>
 
@@ -50,56 +61,62 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         canvas.width = Math.min(window.innerWidth - 20, 400);
-        canvas.height = window.innerHeight * 0.5;
+        canvas.height = window.innerHeight * 0.55;
 
-        let gameActive = true;
+        let gameActive = false;
+        let myFaction = 'cyan';
         
+        const inputState = { left: false, right: false };
         const game = {
             ball: { x: canvas.width/2, y: canvas.height/2, vx: 3, vy: 3, r: 7 },
-            p1: { x: canvas.width/2 - 40, y: canvas.height - 25, w: 80, h: 10, speed: 8, xp: 0, lvl: 1 },
-            p2: { x: canvas.width/2 - 40, y: 15, w: 80, h: 10, speed: 3.5 },
+            p1: { x: canvas.width/2 - 40, y: canvas.height - 20, w: 80, h: 10, speed: 6, xp: 0, lvl: 1 },
+            p2: { x: canvas.width/2 - 40, y: 10, w: 80, h: 10, speed: 3.5 },
             buffer: [],
-            stats: { paddleMult: 1, speedMult: 1, luck: 1 }
+            stats: { speedMult: 1, xpBonus: 1 }
         };
 
-        // --- UPGRADE OPTIONS ---
-        const upgrades = [
-            { name: "Wider Paddle", effect: () => { game.p1.w += 15; } },
-            { name: "Turbo Speed", effect: () => { game.stats.speedMult += 0.2; } },
-            { name: "Extra XP Gain", effect: () => { game.stats.luck += 0.5; } },
-            { name: "Ball Gravity", effect: () => { game.ball.r += 2; } }
-        ];
+        // --- FACTION PICKER ---
+        document.getElementById('pick-cyan').onclick = () => startGame('cyan');
+        document.getElementById('pick-red').onclick = () => startGame('red');
 
-        // --- INPUTS ---
-        const addInput = (dir) => { if(gameActive) game.buffer.push(dir); };
-        document.getElementById('btn-left').onmousedown = () => addInput(-1);
-        document.getElementById('btn-right').onmousedown = () => addInput(1);
-        document.getElementById('btn-left').ontouchstart = (e) => { e.preventDefault(); addInput(-1); };
-        document.getElementById('btn-right').ontouchstart = (e) => { e.preventDefault(); addInput(1); };
-
-        function showUpgrades() {
-            gameActive = false;
-            const container = document.getElementById('upgrade-list');
-            container.innerHTML = '';
-            const shuffled = upgrades.sort(() => 0.5 - Math.random()).slice(0, 3);
-            
-            shuffled.forEach(up => {
-                const div = document.createElement('div');
-                div.className = 'upgrade-card';
-                div.innerText = up.name;
-                div.onclick = () => {
-                    up.effect();
-                    gameActive = true;
-                    document.getElementById('overlay').style.display = 'none';
-                    resetBall();
-                };
-                container.appendChild(div);
-            });
-            document.getElementById('overlay').style.display = 'flex';
+        function startGame(faction) {
+            myFaction = faction;
+            document.getElementById('faction-label').innerText = "TEAM: " + faction.toUpperCase();
+            document.getElementById('faction-label').style.color = faction === 'cyan' ? 'var(--cyan)' : 'var(--red)';
+            game.p1.color = faction === 'cyan' ? 'var(--cyan)' : 'var(--red)';
+            document.getElementById('login-screen').style.display = 'none';
+            gameActive = true;
         }
+
+        // --- FLUID HOLD CONTROLS ---
+        const setupBtn = (id, key) => {
+            const el = document.getElementById(id);
+            const start = (e) => { e.preventDefault(); inputState[key] = true; el.classList.add('active'); };
+            const end = () => { inputState[key] = false; el.classList.remove('active'); };
+            el.addEventListener('mousedown', start);
+            el.addEventListener('touchstart', start);
+            window.addEventListener('mouseup', end);
+            window.addEventListener('touchend', end);
+        };
+        setupBtn('btn-left', 'left');
+        setupBtn('btn-right', 'right');
+
+        // Keyboard support
+        window.onkeydown = (e) => { 
+            if(e.key === "ArrowLeft") inputState.left = true; 
+            if(e.key === "ArrowRight") inputState.right = true;
+        };
+        window.onkeyup = (e) => { 
+            if(e.key === "ArrowLeft") inputState.left = false; 
+            if(e.key === "ArrowRight") inputState.right = false;
+        };
 
         function update() {
             if (!gameActive) return;
+
+            // Handle "Holding" logic: Add to buffer every frame button is down
+            if (inputState.left) game.buffer.push(-1);
+            if (inputState.right) game.buffer.push(1);
 
             // Command Averaging
             if (game.buffer.length > 0) {
@@ -110,23 +127,19 @@
 
             game.p1.x = Math.max(0, Math.min(canvas.width - game.p1.w, game.p1.x));
 
-            // Ball Physics
+            // Ball & AI (Same as before but tuned for easier scoring)
             game.ball.x += game.ball.vx;
             game.ball.y += game.ball.vy;
             if (game.ball.x < 0 || game.ball.x > canvas.width) game.ball.vx *= -1;
+            game.p2.x += (game.ball.x - (game.p2.x + game.p2.w/2)) * 0.07; // Nerfed AI slightly
 
-            // AI (Opponent)
-            game.p2.x += (game.ball.x - (game.p2.x + game.p2.w/2)) * 0.1;
-
-            // Collisions
             if (checkCollision(game.p1)) {
-                game.p1.xp += Math.floor(5 * game.stats.luck);
+                game.p1.xp += Math.floor(5 * game.stats.xpBonus);
                 document.getElementById('xp-val').innerText = game.p1.xp;
             }
             checkCollision(game.p2);
 
-            // Scoring
-            if (game.ball.y < 0) { 
+            if (game.ball.y < 0) { // SCORE!
                 game.p1.lvl++;
                 document.getElementById('lvl-val').innerText = game.p1.lvl;
                 showUpgrades(); 
@@ -135,36 +148,49 @@
         }
 
         function checkCollision(p) {
-            if (game.ball.x > p.x && game.ball.x < p.x + p.w && 
-                Math.abs(game.ball.y - p.y) < p.h) {
+            if (game.ball.x > p.x && game.ball.x < p.x + p.w && Math.abs(game.ball.y - p.y) < p.h) {
                 game.ball.vy *= -1.05;
+                game.ball.y = (p.y < canvas.height/2) ? p.y + p.h + 1 : p.y - 1; // Prevent sticking
                 return true;
             }
             return false;
         }
 
+        function showUpgrades() {
+            gameActive = false;
+            const list = document.getElementById('upgrade-list');
+            list.innerHTML = '';
+            const options = [
+                { n: "Bigger Paddle", f: () => game.p1.w += 20 },
+                { n: "Agility Boost", f: () => game.stats.speedMult += 0.3 },
+                { n: "Greed (2x XP)", f: () => game.stats.xpBonus += 1 }
+            ];
+            options.forEach(opt => {
+                const d = document.createElement('div');
+                d.className = 'card';
+                d.innerText = opt.n;
+                d.onclick = () => { opt.f(); gameActive = true; document.getElementById('overlay').style.display = 'none'; resetBall(); };
+                list.appendChild(d);
+            });
+            document.getElementById('overlay').style.display = 'flex';
+        }
+
         function resetBall() {
-            game.ball.x = canvas.width / 2;
-            game.ball.y = canvas.height / 2;
-            game.ball.vx = (Math.random() - 0.5) * 6;
-            game.ball.vy = 3;
+            game.ball.x = canvas.width/2; game.ball.y = canvas.height/2;
+            game.ball.vx = (Math.random()-0.5)*5; game.ball.vy = 3;
         }
 
         function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "#00ffcc";
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.fillStyle = game.p1.color;
             ctx.fillRect(game.p1.x, game.p1.y, game.p1.w, game.p1.h);
-            ctx.fillStyle = "#ff4444";
+            ctx.fillStyle = (myFaction === 'cyan' ? 'var(--red)' : 'var(--cyan)');
             ctx.fillRect(game.p2.x, game.p2.y, game.p2.w, game.p2.h);
             ctx.fillStyle = "white";
             ctx.beginPath(); ctx.arc(game.ball.x, game.ball.y, game.ball.r, 0, Math.PI*2); ctx.fill();
         }
 
-        function loop() {
-            update();
-            draw();
-            requestAnimationFrame(loop);
-        }
+        function loop() { update(); draw(); requestAnimationFrame(loop); }
         loop();
     </script>
 </body>
