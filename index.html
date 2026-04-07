@@ -147,14 +147,37 @@
             if (game.ball.y > canvas.height) resetBall();
         }
 
-        function checkCollision(p) {
-            if (game.ball.x > p.x && game.ball.x < p.x + p.w && Math.abs(game.ball.y - p.y) < p.h) {
-                game.ball.vy *= -1.05;
-                game.ball.y = (p.y < canvas.height/2) ? p.y + p.h + 1 : p.y - 1; // Prevent sticking
-                return true;
+function checkCollision(p) {
+    // Check if ball is within horizontal bounds of paddle
+    if (game.ball.x + game.ball.r > p.x && game.ball.x - game.ball.r < p.x + p.w) {
+        // Check if ball is hitting the vertical plane of the paddle
+        if (Math.abs(game.ball.y - p.y) < p.h + game.ball.r) {
+            
+            // 1. ANGLE MATH: Find how far from the center the ball hit
+            // Results in a number between -1 (left edge) and 1 (right edge)
+            let hitPoint = (game.ball.x - (p.x + p.w / 2)) / (p.w / 2);
+            
+            // 2. REFLECT: Flip vertical velocity and apply speed boost
+            game.ball.vy *= -1.05; 
+            
+            // 3. APPLY ANGLE: Set horizontal velocity based on hitPoint
+            // Higher multiplier = more aggressive angles
+            game.ball.vx = hitPoint * 7; 
+
+            // 4. PREVENT SLIDING: Teleport ball outside the paddle box immediately
+            if (p.y < canvas.height / 2) {
+                // Top paddle (AI)
+                game.ball.y = p.y + p.h + game.ball.r + 1;
+            } else {
+                // Bottom paddle (Player)
+                game.ball.y = p.y - game.ball.r - 1;
             }
-            return false;
+
+            return true;
         }
+    }
+    return false;
+}
 
         function showUpgrades() {
             gameActive = false;
