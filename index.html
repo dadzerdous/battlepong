@@ -130,6 +130,8 @@
             // Ball & AI (Same as before but tuned for easier scoring)
             game.ball.x += game.ball.vx;
             game.ball.y += game.ball.vy;
+            checkCollision(game.p1);
+checkCollision(game.p2);
             if (game.ball.x < 0 || game.ball.x > canvas.width) game.ball.vx *= -1;
             game.p2.x += (game.ball.x - (game.p2.x + game.p2.w/2)) * 0.07; // Nerfed AI slightly
 
