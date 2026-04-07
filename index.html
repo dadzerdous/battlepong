@@ -1,222 +1,1669 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Battle Pong: Faction War</title>
-    <style>
-        :root { --cyan: #00f2ff; --red: #ff3366; --bg: #0d0d12; }
-        body { margin: 0; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; display: flex; flex-direction: column; align-items: center; user-select: none; }
-        
-        /* Faction Selection Screen */
-        #login-screen { position: absolute; inset: 0; background: var(--bg); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .faction-btn { width: 200px; padding: 20px; margin: 10px; border: 3px solid; border-radius: 12px; cursor: pointer; font-weight: bold; text-align: center; font-size: 1.2rem; }
-        #pick-cyan { border-color: var(--cyan); color: var(--cyan); }
-        #pick-red { border-color: var(--red); color: var(--red); }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>BATTLE PONG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <style>
+/* ═══════════════════════════════════════════════════════════
+   BATTLE PONG — style.css
+   Aesthetic: Dark Arcade / CRT Cyberpunk
+   ═══════════════════════════════════════════════════════════ */
 
-        #ui-top { width: 90%; display: flex; justify-content: space-between; padding: 15px 0; font-family: monospace; }
-        canvas { background: #000; border: 1px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
 
-        /* Controls: Small, 2-key width buttons at the bottom corners */
-        #control-bar { width: 100%; max-width: 450px; position: relative; height: 120px; margin-top: 10px; }
-        .btn { position: absolute; bottom: 20px; width: 70px; height: 70px; background: #222; border: 2px solid #444; border-radius: 10px; 
-               display: flex; align-items: center; justify-content: center; font-size: 24px; color: #666; touch-action: none; }
-        #btn-left { left: 20px; }
-        #btn-right { right: 20px; }
-        .btn.active { border-color: white; color: white; background: #333; }
+:root {
+  --cyan:       #00f5ff;
+  --cyan-dim:   #007a80;
+  --cyan-glow:  rgba(0, 245, 255, 0.35);
+  --red:        #ff2d55;
+  --red-dim:    #80162a;
+  --red-glow:   rgba(255, 45, 85, 0.35);
+  --gold:       #ffd700;
+  --bg:         #080810;
+  --bg2:        #0d0d1a;
+  --panel:      rgba(255,255,255,0.04);
+  --border:     rgba(255,255,255,0.08);
+  --text:       #e0e0e0;
+  --text-dim:   #666;
+  --font-hud:   'Share Tech Mono', monospace;
+  --font-title: 'Orbitron', sans-serif;
+  --hp-color:   #39ff14;
+  --mp-color:   #8888ff;
+  --transition: 0.2s ease;
+}
 
-        /* Upgrade Overlay */
-        #overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.9); flex-direction: column; align-items: center; justify-content: center; z-index: 50; }
-        .card { width: 220px; padding: 15px; margin: 8px; background: #1a1a1a; border: 1px solid #00f2ff; border-radius: 8px; text-align: center; cursor: pointer; }
-    </style>
+/* ── RESET & BASE ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-hud);
+  overflow: hidden;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── SCANLINES OVERLAY ── */
+.scanlines {
+  position: absolute; inset: 0; pointer-events: none; z-index: 10;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.15) 2px,
+    rgba(0,0,0,0.15) 4px
+  );
+}
+
+/* ── SCREEN SYSTEM ── */
+.screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.4s ease;
+  overflow: hidden;
+}
+.screen.active {
+  opacity: 1; pointer-events: all;
+}
+
+/* ════════════════════════════════════════════
+   FACTION SELECT SCREEN
+   ════════════════════════════════════════════ */
+#screen-faction {
+  background: radial-gradient(ellipse at 30% 50%, rgba(0,245,255,0.06) 0%, transparent 60%),
+              radial-gradient(ellipse at 70% 50%, rgba(255,45,85,0.06) 0%, transparent 60%),
+              var(--bg);
+}
+
+.faction-content {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 24px;
+  position: relative; z-index: 2;
+  padding: 20px;
+}
+
+.title-block { text-align: center; }
+
+.title-eyebrow {
+  font-family: var(--font-hud);
+  font-size: 0.7rem; letter-spacing: 0.4em;
+  color: var(--gold); margin-bottom: 8px;
+  animation: pulse-text 2s infinite;
+}
+
+.game-title {
+  font-family: var(--font-title);
+  font-size: clamp(2.8rem, 10vw, 5rem);
+  font-weight: 900;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--cyan) 0%, #fff 50%, var(--red) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+  filter: drop-shadow(0 0 30px rgba(0,245,255,0.4));
+}
+
+.title-sub {
+  font-size: 0.65rem; letter-spacing: 0.5em;
+  color: var(--text-dim); margin-top: 10px;
+}
+
+.faction-prompt {
+  font-family: var(--font-hud);
+  font-size: 0.75rem; letter-spacing: 0.35em;
+  color: var(--text-dim);
+}
+
+/* ── FACTION CARDS ── */
+.faction-cards {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.faction-vs {
+  font-family: var(--font-title);
+  font-size: 1rem; font-weight: 900;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+}
+
+.faction-card {
+  position: relative;
+  width: 165px;
+  padding: 20px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform var(--transition), border-color var(--transition);
+  overflow: hidden;
+}
+
+.faction-card:hover { transform: translateY(-4px); }
+
+#card-cyan { border-color: var(--cyan-dim); }
+#card-cyan:hover { border-color: var(--cyan); box-shadow: 0 0 24px var(--cyan-glow); }
+#card-red  { border-color: var(--red-dim); }
+#card-red:hover  { border-color: var(--red);  box-shadow: 0 0 24px var(--red-glow); }
+
+.faction-glow {
+  position: absolute; inset: 0; pointer-events: none;
+  opacity: 0.07;
+}
+.cyan-glow { background: radial-gradient(circle at 50% 30%, var(--cyan), transparent 70%); }
+.red-glow  { background: radial-gradient(circle at 50% 30%, var(--red),  transparent 70%); }
+
+.faction-icon {
+  font-size: 2rem; margin-bottom: 8px;
+  filter: drop-shadow(0 0 8px currentColor);
+}
+#card-cyan .faction-icon { color: var(--cyan); }
+#card-red  .faction-icon { color: var(--red); }
+
+.faction-name {
+  font-family: var(--font-title);
+  font-size: 1.2rem; font-weight: 900;
+  letter-spacing: 0.15em;
+}
+#card-cyan .faction-name { color: var(--cyan); }
+#card-red  .faction-name { color: var(--red); }
+
+.faction-title {
+  font-size: 0.6rem; letter-spacing: 0.3em;
+  color: var(--text-dim); margin-bottom: 8px;
+}
+
+.faction-desc {
+  font-size: 0.7rem; color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.faction-stats-preview {
+  display: flex; flex-direction: column; gap: 2px;
+  font-size: 0.55rem; color: var(--text-dim);
+  margin-bottom: 14px; text-align: left;
+}
+
+.join-btn {
+  width: 100%;
+  padding: 8px 0;
+  font-family: var(--font-title);
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  border: 1px solid;
+  border-radius: 2px;
+  cursor: pointer;
+  background: transparent;
+  transition: background var(--transition), color var(--transition);
+}
+.cyan-btn { border-color: var(--cyan); color: var(--cyan); }
+.cyan-btn:hover { background: var(--cyan); color: var(--bg); }
+.red-btn  { border-color: var(--red); color: var(--red); }
+.red-btn:hover  { background: var(--red); color: var(--bg); }
+
+/* ════════════════════════════════════════════
+   STAT ALLOCATION SCREEN
+   ════════════════════════════════════════════ */
+#screen-stats {
+  background: var(--bg2);
+}
+
+.stats-content {
+  width: min(480px, 95vw);
+  display: flex; flex-direction: column; gap: 16px;
+  position: relative; z-index: 2;
+}
+
+.screen-title {
+  font-family: var(--font-title);
+  font-size: 1.2rem; font-weight: 700;
+  letter-spacing: 0.2em;
+  text-align: center;
+  color: var(--cyan);
+}
+
+.points-remaining {
+  text-align: center; font-size: 0.7rem;
+  color: var(--text-dim); letter-spacing: 0.2em;
+}
+.points-remaining span { color: var(--gold); font-weight: bold; }
+
+/* ── STAT SLIDERS ── */
+.stat-sliders {
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr 2.2rem;
+  align-items: center; gap: 10px;
+}
+
+.stat-label {
+  font-family: var(--font-title);
+  font-size: 0.6rem; font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+.stat-label span { display: block; font-size: 0.45rem; font-family: var(--font-hud); letter-spacing: 0.05em; margin-top: 1px; }
+
+.stat-slider {
+  -webkit-appearance: none;
+  width: 100%; height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.stat-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan-glow);
+  cursor: pointer;
+  border: 2px solid var(--bg);
+}
+.stat-slider::-moz-range-thumb {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--cyan);
+  cursor: pointer;
+  border: 2px solid var(--bg);
+}
+
+.stat-val {
+  font-size: 0.75rem;
+  color: var(--gold);
+  text-align: right;
+  min-width: 2rem;
+}
+
+/* ── ARCHETYPES ── */
+.stat-archetypes {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+
+.archetype-label {
+  font-size: 0.6rem; color: var(--text-dim);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.arch-btn {
+  padding: 5px 10px;
+  font-family: var(--font-hud);
+  font-size: 0.6rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: border-color var(--transition), color var(--transition);
+}
+.arch-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+
+/* ── CONFIRM BUTTON ── */
+.confirm-btn {
+  width: 100%;
+  padding: 14px;
+  font-family: var(--font-title);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  background: transparent;
+  border: 1px solid var(--cyan);
+  border-radius: 2px;
+  color: var(--cyan);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), box-shadow var(--transition);
+  position: relative; overflow: hidden;
+}
+.confirm-btn::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: var(--cyan);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.3s ease;
+  z-index: -1;
+}
+.confirm-btn:hover { color: var(--bg); box-shadow: 0 0 20px var(--cyan-glow); }
+.confirm-btn:hover::before { transform: scaleX(1); }
+
+/* ════════════════════════════════════════════
+   GAME SCREEN — HUD
+   ════════════════════════════════════════════ */
+#screen-game {
+  background: #000;
+  gap: 0;
+  justify-content: flex-start;
+}
+
+/* ── HUD TOP ── */
+#hud-top {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
+  padding: 8px 10px 4px;
+  background: rgba(0,0,0,0.6);
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.hud-side { display: flex; flex-direction: column; gap: 3px; }
+.hud-left { align-items: flex-start; }
+.hud-right { align-items: flex-end; }
+
+.hud-faction-label {
+  font-family: var(--font-title);
+  font-size: 0.55rem; font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+}
+
+.hud-score {
+  font-family: var(--font-title);
+  font-size: 1.8rem; font-weight: 900;
+  line-height: 1;
+}
+#hud-player .hud-score { color: var(--cyan); text-shadow: 0 0 12px var(--cyan-glow); }
+#hud-enemy  .hud-score { color: var(--red);  text-shadow: 0 0 12px var(--red-glow); }
+
+/* ── BARS ── */
+.hud-bars { display: flex; flex-direction: column; gap: 2px; width: 100%; max-width: 110px; }
+
+.bar-row {
+  display: flex; align-items: center; gap: 4px;
+}
+.hud-right .bar-row { flex-direction: row-reverse; }
+
+.bar-label {
+  font-size: 0.45rem; color: var(--text-dim);
+  min-width: 1.2rem;
+}
+
+.bar-track {
+  flex: 1; height: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 2px; overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%; border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.hp-fill { background: var(--hp-color); box-shadow: 0 0 6px rgba(57,255,20,0.5); }
+.mp-fill { background: var(--mp-color); box-shadow: 0 0 6px rgba(136,136,255,0.5); }
+
+.hud-xp-row { font-size: 0.5rem; color: var(--text-dim); letter-spacing: 0.1em; }
+
+/* ── HUD CENTER ── */
+.hud-center {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 4px;
+  padding: 0 4px;
+}
+
+.round-label {
+  font-size: 0.5rem; letter-spacing: 0.2em;
+  color: var(--text-dim);
+}
+
+.vs-divider {
+  font-size: 1rem; color: var(--gold);
+  filter: drop-shadow(0 0 8px var(--gold));
+}
+
+.ability-display { text-align: center; }
+.ability-name {
+  font-family: var(--font-title);
+  font-size: 0.55rem; font-weight: 700;
+  letter-spacing: 0.1em; color: var(--gold);
+}
+.ability-key { font-size: 0.4rem; color: var(--text-dim); }
+.ability-cost { font-size: 0.45rem; color: var(--mp-color); }
+
+/* ── CANVAS ── */
+#gameCanvas {
+  display: block;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+
+/* ── ABILITY BAR ── */
+#ability-bar-wrap {
+  width: 100%;
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 10px;
+  background: rgba(0,0,0,0.4);
+  flex-shrink: 0;
+}
+
+.ability-bar-label {
+  font-size: 0.5rem; letter-spacing: 0.15em;
+  color: var(--gold); min-width: 3.5rem;
+}
+
+.ability-track {
+  flex: 1; height: 3px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 2px; overflow: hidden;
+}
+
+.ability-fill {
+  height: 100%; width: 100%;
+  background: var(--gold);
+  box-shadow: 0 0 6px rgba(255,215,0,0.6);
+  border-radius: 2px;
+  transition: width 0.1s linear;
+}
+
+/* ── MOBILE CONTROLS ── */
+#mobile-controls {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(0,0,0,0.5);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ctrl-group {
+  display: flex; gap: 8px;
+}
+
+.ctrl-btn {
+  width: 64px; height: 64px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 1.3rem;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  touch-action: none;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+  -webkit-tap-highlight-color: transparent;
+}
+.ctrl-btn:active, .ctrl-btn.active {
+  background: rgba(255,255,255,0.12);
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: 0 0 12px var(--cyan-glow);
+}
+.ability-ctrl:active, .ability-ctrl.active {
+  border-color: var(--gold);
+  color: var(--gold);
+  box-shadow: 0 0 12px rgba(255,215,0,0.4);
+}
+
+/* ════════════════════════════════════════════
+   UPGRADE SCREEN
+   ════════════════════════════════════════════ */
+#screen-upgrade {
+  background: radial-gradient(ellipse at 50% 0%, rgba(0,245,255,0.08) 0%, transparent 60%), var(--bg);
+}
+
+.upgrade-content {
+  width: min(500px, 95vw);
+  display: flex; flex-direction: column;
+  align-items: center; gap: 20px;
+  position: relative; z-index: 2;
+}
+
+.upgrade-header { text-align: center; }
+
+.upgrade-eyebrow {
+  font-size: 0.6rem; letter-spacing: 0.5em;
+  color: var(--gold); margin-bottom: 6px;
+}
+
+.upgrade-title {
+  font-family: var(--font-title);
+  font-size: 1.5rem; font-weight: 900;
+  letter-spacing: 0.15em;
+  color: white;
+}
+
+.upgrade-sub { font-size: 0.6rem; color: var(--text-dim); margin-top: 4px; }
+
+/* ── UPGRADE CARDS ── */
+.upgrade-cards {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.upgrade-card {
+  width: 145px;
+  padding: 16px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+  transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
+  position: relative; overflow: hidden;
+}
+.upgrade-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--cyan);
+  box-shadow: 0 8px 24px var(--cyan-glow);
+}
+
+.upgrade-card.rarity-rare { border-color: #8844ff; }
+.upgrade-card.rarity-rare:hover { box-shadow: 0 8px 24px rgba(136,68,255,0.4); }
+.upgrade-card.rarity-legendary { border-color: var(--gold); }
+.upgrade-card.rarity-legendary:hover { box-shadow: 0 8px 24px rgba(255,215,0,0.4); }
+.upgrade-card.rarity-curse { border-color: #ff6600; }
+.upgrade-card.rarity-curse:hover { box-shadow: 0 8px 24px rgba(255,102,0,0.3); }
+
+.upgrade-rarity-tag {
+  font-size: 0.45rem; letter-spacing: 0.3em;
+  margin-bottom: 8px;
+}
+.rarity-common  .upgrade-rarity-tag { color: var(--text-dim); }
+.rarity-rare    .upgrade-rarity-tag { color: #aa77ff; }
+.rarity-legendary .upgrade-rarity-tag { color: var(--gold); }
+.rarity-curse   .upgrade-rarity-tag { color: #ff6600; }
+
+.upgrade-icon { font-size: 1.8rem; margin-bottom: 6px; }
+
+.upgrade-card-name {
+  font-family: var(--font-title);
+  font-size: 0.65rem; font-weight: 700;
+  letter-spacing: 0.08em;
+  color: white; margin-bottom: 6px;
+}
+
+.upgrade-card-desc {
+  font-size: 0.55rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+/* ════════════════════════════════════════════
+   GAME OVER SCREEN
+   ════════════════════════════════════════════ */
+#screen-gameover {
+  background: var(--bg);
+}
+
+.gameover-content {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 20px;
+  position: relative; z-index: 2;
+  text-align: center;
+}
+
+.gameover-result {
+  font-family: var(--font-title);
+  font-size: clamp(3rem, 12vw, 5rem);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  animation: pulse-text 1s infinite;
+}
+.gameover-result.win { color: var(--gold); filter: drop-shadow(0 0 20px rgba(255,215,0,0.6)); }
+.gameover-result.lose { color: var(--red); filter: drop-shadow(0 0 20px var(--red-glow)); }
+
+.gameover-title {
+  font-family: var(--font-title);
+  font-size: 1rem; font-weight: 400;
+  letter-spacing: 0.4em;
+  color: var(--text-dim);
+}
+
+.gameover-stats {
+  font-size: 0.7rem; color: var(--text-dim);
+  line-height: 2; letter-spacing: 0.1em;
+}
+
+/* ════════════════════════════════════════════
+   ANIMATIONS
+   ════════════════════════════════════════════ */
+@keyframes pulse-text {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes screen-flash {
+  0% { opacity: 0.5; }
+  100% { opacity: 0; }
+}
+
+.flash-overlay {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 999;
+  animation: screen-flash 0.2s ease-out forwards;
+}
+
+</style>
 </head>
 <body>
 
-    <div id="login-screen">
-        <h1>BATTLE PONG</h1>
-        <p>CHOOSE YOUR SIDE</p>
-        <div id="pick-cyan" class="faction-btn">JOIN CYAN</div>
-        <div id="pick-red" class="faction-btn">JOIN RED</div>
+  <!-- ═══════════════════════════════════════════ FACTION SELECT SCREEN -->
+  <div id="screen-faction" class="screen active">
+    <div class="scanlines"></div>
+    <div class="faction-content">
+      <div class="title-block">
+        <div class="title-eyebrow">⚡ SEASON 1 ⚡</div>
+        <h1 class="game-title">BATTLE<br/>PONG</h1>
+        <div class="title-sub">ROGUELITE FACTION WAR</div>
+      </div>
+
+      <div class="faction-prompt">CHOOSE YOUR FACTION</div>
+
+      <div class="faction-cards">
+        <div class="faction-card" id="card-cyan" data-faction="cyan">
+          <div class="faction-glow cyan-glow"></div>
+          <div class="faction-icon">◈</div>
+          <div class="faction-name">CYAN</div>
+          <div class="faction-title">VANGUARD</div>
+          <div class="faction-desc">Speed &amp; Precision</div>
+          <div class="faction-stats-preview">
+            <span>SPD ████░</span>
+            <span>SIZ ███░░</span>
+          </div>
+          <button class="join-btn cyan-btn">JOIN VANGUARD</button>
+        </div>
+
+        <div class="faction-vs">VS</div>
+
+        <div class="faction-card" id="card-red" data-faction="red">
+          <div class="faction-glow red-glow"></div>
+          <div class="faction-icon">◆</div>
+          <div class="faction-name">RED</div>
+          <div class="faction-title">DOMINION</div>
+          <div class="faction-desc">Power &amp; Endurance</div>
+          <div class="faction-stats-preview">
+            <span>POW ████░</span>
+            <span>SIZ ████░</span>
+          </div>
+          <button class="join-btn red-btn">JOIN DOMINION</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ STAT ALLOCATION SCREEN -->
+  <div id="screen-stats" class="screen">
+    <div class="scanlines"></div>
+    <div class="stats-content">
+      <h2 class="screen-title">BUILD YOUR FIGHTER</h2>
+      <div class="points-remaining">POINTS REMAINING: <span id="points-left">200</span></div>
+
+      <div class="stat-sliders" id="stat-sliders">
+        <!-- injected by JS -->
+      </div>
+
+      <div class="stat-archetypes">
+        <div class="archetype-label">QUICK BUILDS:</div>
+        <button class="arch-btn" data-arch="cannon">Glass Cannon</button>
+        <button class="arch-btn" data-arch="wall">The Wall</button>
+        <button class="arch-btn" data-arch="speed">Speedster</button>
+        <button class="arch-btn" data-arch="trick">Trickster</button>
+      </div>
+
+      <button class="confirm-btn" id="confirm-stats">ENTER THE ARENA →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ GAME SCREEN -->
+  <div id="screen-game" class="screen">
+    <!-- HUD TOP -->
+    <div id="hud-top">
+      <div class="hud-side hud-left" id="hud-player">
+        <div class="hud-faction-label" id="hud-faction-name">VANGUARD</div>
+        <div class="hud-score-block">
+          <span class="hud-score" id="score-player">0</span>
+        </div>
+        <div class="hud-bars">
+          <div class="bar-row"><span class="bar-label">HP</span><div class="bar-track"><div class="bar-fill hp-fill" id="hp-bar"></div></div></div>
+          <div class="bar-row"><span class="bar-label">MP</span><div class="bar-track"><div class="bar-fill mp-fill" id="mp-bar"></div></div></div>
+        </div>
+        <div class="hud-xp-row">XP <span id="xp-val">0</span> · LVL <span id="lvl-val">1</span></div>
+      </div>
+
+      <div class="hud-center">
+        <div class="round-label">ROUND <span id="round-num">1</span></div>
+        <div class="vs-divider">⚡</div>
+        <div class="ability-display" id="ability-display">
+          <div class="ability-name" id="ability-name">SURGE</div>
+          <div class="ability-key">[SPACE]</div>
+          <div class="ability-cost" id="ability-cost">40 MP</div>
+        </div>
+      </div>
+
+      <div class="hud-side hud-right" id="hud-enemy">
+        <div class="hud-faction-label" id="hud-enemy-name">DOMINION</div>
+        <div class="hud-score-block">
+          <span class="hud-score" id="score-enemy">0</span>
+        </div>
+        <div class="hud-bars">
+          <div class="bar-row"><div class="bar-track"><div class="bar-fill hp-fill enemy-hp" id="enemy-hp-bar"></div></div><span class="bar-label">HP</span></div>
+          <div class="bar-row"><div class="bar-track"><div class="bar-fill mp-fill enemy-mp" id="enemy-mp-bar"></div></div><span class="bar-label">MP</span></div>
+        </div>
+        <div class="hud-xp-row">AI ENEMY</div>
+      </div>
     </div>
 
-    <div id="ui-top">
-        <div id="faction-label">TEAM: --</div>
-        <div>XP: <span id="xp-val">0</span></div>
-        <div>LVL: <span id="lvl-val">1</span></div>
-    </div>
-    
+    <!-- CANVAS -->
     <canvas id="gameCanvas"></canvas>
 
-    <div id="control-bar">
-        <div class="btn" id="btn-left">◀</div>
-        <div class="btn" id="btn-right">▶</div>
+    <!-- ABILITY COOLDOWN INDICATOR -->
+    <div id="ability-bar-wrap">
+      <div class="ability-bar-label" id="ability-status">READY</div>
+      <div class="ability-track"><div class="ability-fill" id="ability-fill"></div></div>
     </div>
 
-    <div id="overlay">
-        <h2>RANK UP: CHOOSE PERK</h2>
-        <div id="upgrade-list"></div>
+    <!-- MOBILE CONTROLS -->
+    <div id="mobile-controls">
+      <div class="ctrl-group left-ctrl">
+        <button class="ctrl-btn" id="btn-move-left">◀</button>
+      </div>
+      <div class="ctrl-group center-ctrl">
+        <button class="ctrl-btn ability-ctrl" id="btn-ability">⚡</button>
+      </div>
+      <div class="ctrl-group right-ctrl">
+        <button class="ctrl-btn" id="btn-move-right">▶</button>
+      </div>
     </div>
+  </div>
 
-    <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-        canvas.width = Math.min(window.innerWidth - 20, 400);
-        canvas.height = window.innerHeight * 0.55;
+  <!-- ═══════════════════════════════════════════ UPGRADE SCREEN -->
+  <div id="screen-upgrade" class="screen">
+    <div class="scanlines"></div>
+    <div class="upgrade-content">
+      <div class="upgrade-header">
+        <div class="upgrade-eyebrow">ROUND CLEAR</div>
+        <h2 class="upgrade-title">CHOOSE YOUR POWER</h2>
+        <div class="upgrade-sub">Round <span id="upgrade-round">1</span> Complete · Score: <span id="upgrade-score">0</span></div>
+      </div>
+      <div class="upgrade-cards" id="upgrade-cards">
+        <!-- injected by JS -->
+      </div>
+    </div>
+  </div>
 
-        let gameActive = false;
-        let myFaction = 'cyan';
-        
-        const inputState = { left: false, right: false };
-        const game = {
-            ball: { x: canvas.width/2, y: canvas.height/2, vx: 3, vy: 3, r: 7 },
-            p1: { x: canvas.width/2 - 40, y: canvas.height - 20, w: 80, h: 10, speed: 3, xp: 0, lvl: 1 },
-            p2: { x: canvas.width/2 - 40, y: 10, w: 80, h: 10, speed: 3.5 },
-            buffer: [],
-            stats: { speedMult: 1, xpBonus: 1 }
-        };
+  <!-- ═══════════════════════════════════════════ GAME OVER SCREEN -->
+  <div id="screen-gameover" class="screen">
+    <div class="scanlines"></div>
+    <div class="gameover-content">
+      <div class="gameover-result" id="gameover-result">VICTORY</div>
+      <h2 class="gameover-title" id="gameover-title">YOU WIN</h2>
+      <div class="gameover-stats" id="gameover-stats"></div>
+      <button class="confirm-btn" id="btn-play-again">PLAY AGAIN</button>
+    </div>
+  </div>
 
-        // --- FACTION PICKER ---
-        document.getElementById('pick-cyan').onclick = () => startGame('cyan');
-        document.getElementById('pick-red').onclick = () => startGame('red');
+  <script>
+/* ═══════════════════════════════════════════════════════════
+   BATTLE PONG — game.js
+   Phase 1: Core engine + stat system + roguelite loop
+   Architecture mirrors the full design doc for easy expansion
+   ═══════════════════════════════════════════════════════════ */
 
-        function startGame(faction) {
-            myFaction = faction;
-            document.getElementById('faction-label').innerText = "TEAM: " + faction.toUpperCase();
-            document.getElementById('faction-label').style.color = faction === 'cyan' ? 'var(--cyan)' : 'var(--red)';
-            game.p1.color = faction === 'cyan' ? 'var(--cyan)' : 'var(--red)';
-            document.getElementById('login-screen').style.display = 'none';
-            gameActive = true;
-        }
+'use strict';
 
-        // --- FLUID HOLD CONTROLS ---
-        const setupBtn = (id, key) => {
-            const el = document.getElementById(id);
-            const start = (e) => { e.preventDefault(); inputState[key] = true; el.classList.add('active'); };
-            const end = () => { inputState[key] = false; el.classList.remove('active'); };
-            el.addEventListener('mousedown', start);
-            el.addEventListener('touchstart', start);
-            window.addEventListener('mouseup', end);
-            window.addEventListener('touchend', end);
-        };
-        setupBtn('btn-left', 'left');
-        setupBtn('btn-right', 'right');
+// ─────────────────────────────────────────────────────────────
+//  CONSTANTS
+// ─────────────────────────────────────────────────────────────
+const STAT_BUDGET    = 200;
+const STAT_MAX       = 80;
+const SCORE_TO_WIN   = 5;     // points to win a round
+const ROUNDS_TO_WIN  = 3;     // rounds to win the match
+const BALL_BASE_SPD  = 4;
+const BALL_MAX_SPD   = 14;
+const AI_REACTION    = 0.072; // base AI tracking speed
 
-        // Keyboard support
-        window.onkeydown = (e) => { 
-            if(e.key === "ArrowLeft") inputState.left = true; 
-            if(e.key === "ArrowRight") inputState.right = true;
-        };
-        window.onkeyup = (e) => { 
-            if(e.key === "ArrowLeft") inputState.left = false; 
-            if(e.key === "ArrowRight") inputState.right = false;
-        };
+const FACTION = {
+  cyan: { name: 'VANGUARD', color: '#00f5ff', glow: 'rgba(0,245,255,0.6)' },
+  red:  { name: 'DOMINION', color: '#ff2d55', glow: 'rgba(255,45,85,0.6)' }
+};
 
-        function update() {
-            if (!gameActive) return;
+// ─────────────────────────────────────────────────────────────
+//  STAT DEFINITIONS
+// ─────────────────────────────────────────────────────────────
+const STAT_DEFS = [
+  { key: 'POW', label: 'POWER',   desc: 'Ball speed on hit',     defaultVal: 30 },
+  { key: 'SPD', label: 'SPEED',   desc: 'Paddle movement speed', defaultVal: 35 },
+  { key: 'SIZ', label: 'SIZE',    desc: 'Paddle height & width', defaultVal: 35 },
+  { key: 'RFX', label: 'REFLEX',  desc: 'Input buffer smoothness',defaultVal: 30 },
+  { key: 'INT', label: 'INTEL',   desc: 'Mana pool & cooldowns', defaultVal: 35 },
+  { key: 'LCK', label: 'LUCK',    desc: 'Upgrade rarity & crits',defaultVal: 35 }
+];
 
-            // Handle "Holding" logic: Add to buffer every frame button is down
-            if (inputState.left) game.buffer.push(-1);
-            if (inputState.right) game.buffer.push(1);
+const ARCHETYPES = {
+  cannon: { POW:80, SPD:55, SIZ:20, RFX:25, INT:10, LCK:10 },
+  wall:   { POW:15, SPD:25, SIZ:80, RFX:45, INT:20, LCK:15 },
+  speed:  { POW:25, SPD:80, SIZ:35, RFX:60, INT:10, LCK:10 },
+  trick:  { POW:25, SPD:35, SIZ:25, RFX:40, INT:65, LCK:10 }
+};
 
-            // Command Averaging
-            if (game.buffer.length > 0) {
-                let avg = game.buffer.reduce((a,b) => a+b, 0) / game.buffer.length;
-                game.p1.x += avg * (game.p1.speed * game.stats.speedMult);
-                game.buffer = [];
-            }
+// Fix archetype totals to exactly 200
+const normalizeArchetype = (arch) => {
+  const vals = {...arch};
+  let total = Object.values(vals).reduce((a,b)=>a+b,0);
+  // Scale to 200
+  const keys = Object.keys(vals);
+  const scale = 200 / total;
+  keys.forEach(k => vals[k] = Math.min(STAT_MAX, Math.round(vals[k] * scale)));
+  return vals;
+};
 
-            game.p1.x = Math.max(0, Math.min(canvas.width - game.p1.w, game.p1.x));
+// ─────────────────────────────────────────────────────────────
+//  STAT → GAME VALUE MAPPERS
+// ─────────────────────────────────────────────────────────────
+const deriveGameStats = (stats) => ({
+  paddleW:      80 + (stats.SIZ * 0.7),           // 80–136px
+  paddleH:       8 + (stats.SIZ * 0.06),           // 8–13px
+  paddleSpeed:   3.5 + (stats.SPD * 0.075),        // 3.5–9.5 px/frame
+  ballSpeedMult: 1 + (stats.POW * 0.008),           // 1–1.64x
+  manaMax:      60 + (stats.INT * 2.4),            // 60–252
+  manaRegen:    0.12 + (stats.INT * 0.003),        // per frame
+  luckMod:      stats.LCK / 100,                   // 0–0.8
+  rfxSmooth:    0.55 + (stats.RFX * 0.004),        // input smoothing
+});
 
-            // Ball & AI (Same as before but tuned for easier scoring)
-            game.ball.x += game.ball.vx;
-            game.ball.y += game.ball.vy;
-            checkCollision(game.p1);
-checkCollision(game.p2);
-            if (game.ball.x < 0 || game.ball.x > canvas.width) game.ball.vx *= -1;
-            game.p2.x += (game.ball.x - (game.p2.x + game.p2.w/2)) * 0.07; // Nerfed AI slightly
-
-            if (checkCollision(game.p1)) {
-                game.p1.xp += Math.floor(5 * game.stats.xpBonus);
-                document.getElementById('xp-val').innerText = game.p1.xp;
-            }
-            checkCollision(game.p2);
-
-            if (game.ball.y < 0) { // SCORE!
-                game.p1.lvl++;
-                document.getElementById('lvl-val').innerText = game.p1.lvl;
-                showUpgrades(); 
-            }
-            if (game.ball.y > canvas.height) resetBall();
-        }
-
-function checkCollision(p) {
-    // Check if ball is within horizontal bounds of paddle
-    if (game.ball.x + game.ball.r > p.x && game.ball.x - game.ball.r < p.x + p.w) {
-        // Check if ball is hitting the vertical plane of the paddle
-        if (Math.abs(game.ball.y - p.y) < p.h + game.ball.r) {
-            
-            // 1. ANGLE MATH: Find how far from the center the ball hit
-            // Results in a number between -1 (left edge) and 1 (right edge)
-            let hitPoint = (game.ball.x - (p.x + p.w / 2)) / (p.w / 2);
-            
-            // 2. REFLECT: Flip vertical velocity and apply speed boost
-            game.ball.vy *= -1.05; 
-            
-            // 3. APPLY ANGLE: Set horizontal velocity based on hitPoint
-            // Higher multiplier = more aggressive angles
-            game.ball.vx = hitPoint * 7; 
-
-            // 4. PREVENT SLIDING: Teleport ball outside the paddle box immediately
-            if (p.y < canvas.height / 2) {
-                // Top paddle (AI)
-                game.ball.y = p.y + p.h + game.ball.r + 1;
-            } else {
-                // Bottom paddle (Player)
-                game.ball.y = p.y - game.ball.r - 1;
-            }
-
-            return true;
-        }
+// ─────────────────────────────────────────────────────────────
+//  ABILITIES
+// ─────────────────────────────────────────────────────────────
+const ABILITIES = {
+  surge: {
+    name: 'SURGE', icon: '⚡', cost: 40, cooldown: 300,
+    desc: 'Ball speed +60% for 3s',
+    apply: (state) => {
+      state.effects.push({ type: 'ball-speed', mult: 1.6, frames: 180 });
     }
-    return false;
+  },
+  shield: {
+    name: 'SHIELD', icon: '🛡', cost: 35, cooldown: 280,
+    desc: 'Paddle width +80% for 2s',
+    apply: (state) => {
+      state.effects.push({ type: 'paddle-size', mult: 1.8, frames: 120 });
+    }
+  },
+  curve: {
+    name: 'CURVEBALL', icon: '🌀', cost: 25, cooldown: 200,
+    desc: 'Next hit applies heavy spin',
+    apply: (state) => {
+      state.effects.push({ type: 'next-hit-spin', mult: 2.5, frames: 600 });
+    }
+  },
+  freeze: {
+    name: 'FREEZE', icon: '❄', cost: 50, cooldown: 360,
+    desc: 'Slows enemy paddle for 2s',
+    apply: (state, enemyState) => {
+      enemyState.effects.push({ type: 'paddle-slow', mult: 0.3, frames: 120 });
+    }
+  },
+  overclock: {
+    name: 'OVERCLOCK', icon: '💨', cost: 45, cooldown: 320,
+    desc: 'Paddle speed +120% for 2s',
+    apply: (state) => {
+      state.effects.push({ type: 'paddle-speed', mult: 2.2, frames: 120 });
+    }
+  },
+  magnet: {
+    name: 'MAGNET', icon: '🧲', cost: 30, cooldown: 240,
+    desc: 'Ball curves toward your paddle',
+    apply: (state) => {
+      state.effects.push({ type: 'magnet', frames: 150 });
+    }
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+//  UPGRADE POOL
+// ─────────────────────────────────────────────────────────────
+const UPGRADE_POOL = [
+  // Common
+  { id:'spd1', name:'Quick Feet',    icon:'👟', rarity:'common', desc:'+10 SPD',                   apply: (gs) => { gs.player.stats.SPD = Math.min(STAT_MAX, gs.player.stats.SPD + 10); gs.player.derived = deriveGameStats(gs.player.stats); } },
+  { id:'pow1', name:'Power Surge',   icon:'💥', rarity:'common', desc:'+10 POW',                   apply: (gs) => { gs.player.stats.POW = Math.min(STAT_MAX, gs.player.stats.POW + 10); gs.player.derived = deriveGameStats(gs.player.stats); } },
+  { id:'siz1', name:'Big Board',     icon:'📋', rarity:'common', desc:'+10 SIZ',                   apply: (gs) => { gs.player.stats.SIZ = Math.min(STAT_MAX, gs.player.stats.SIZ + 10); gs.player.derived = deriveGameStats(gs.player.stats); } },
+  { id:'int1', name:'Focused Mind',  icon:'🧠', rarity:'common', desc:'+10 INT (more mana)',       apply: (gs) => { gs.player.stats.INT = Math.min(STAT_MAX, gs.player.stats.INT + 10); gs.player.derived = deriveGameStats(gs.player.stats); } },
+  { id:'lck1', name:'Rabbit\'s Foot',icon:'🐇', rarity:'common', desc:'+10 LCK',                  apply: (gs) => { gs.player.stats.LCK = Math.min(STAT_MAX, gs.player.stats.LCK + 10); gs.player.derived = deriveGameStats(gs.player.stats); } },
+  { id:'hp1',  name:'Iron Will',     icon:'❤', rarity:'common', desc:'+1 max HP',                 apply: (gs) => { gs.player.maxHp += 1; gs.player.hp = Math.min(gs.player.hp + 1, gs.player.maxHp); } },
+
+  // Rare
+  { id:'surge_unlock', name:'Unlock: SURGE',      icon:'⚡', rarity:'rare', desc:'Equip the Surge ability',      apply: (gs) => { gs.player.ability = 'surge'; } },
+  { id:'shield_unlock',name:'Unlock: SHIELD',     icon:'🛡', rarity:'rare', desc:'Equip the Shield ability',     apply: (gs) => { gs.player.ability = 'shield'; } },
+  { id:'curve_unlock', name:'Unlock: CURVEBALL',  icon:'🌀', rarity:'rare', desc:'Equip the Curveball ability',  apply: (gs) => { gs.player.ability = 'curve'; } },
+  { id:'freeze_unlock',name:'Unlock: FREEZE',     icon:'❄', rarity:'rare', desc:'Equip the Freeze ability',     apply: (gs) => { gs.player.ability = 'freeze'; } },
+  { id:'oc_unlock',    name:'Unlock: OVERCLOCK',  icon:'💨', rarity:'rare', desc:'Equip the Overclock ability',  apply: (gs) => { gs.player.ability = 'overclock'; } },
+  { id:'pow_spd',      name:'Adrenal Rush',        icon:'🔥', rarity:'rare', desc:'+8 POW, +8 SPD',              apply: (gs) => { gs.player.stats.POW = Math.min(STAT_MAX,gs.player.stats.POW+8); gs.player.stats.SPD = Math.min(STAT_MAX,gs.player.stats.SPD+8); gs.player.derived = deriveGameStats(gs.player.stats); } },
+  { id:'allstats',     name:'Ascendant',           icon:'✨', rarity:'rare', desc:'+5 to ALL stats',             apply: (gs) => { STAT_DEFS.forEach(s => { gs.player.stats[s.key] = Math.min(STAT_MAX, gs.player.stats[s.key]+5); }); gs.player.derived = deriveGameStats(gs.player.stats); } },
+
+  // Legendary
+  { id:'glass',  name:'Glass Cannon',  icon:'💎', rarity:'legendary', desc:'+25 POW, -10 SIZ',   apply: (gs) => { gs.player.stats.POW = Math.min(STAT_MAX,gs.player.stats.POW+25); gs.player.stats.SIZ = Math.max(5,gs.player.stats.SIZ-10); gs.player.derived = deriveGameStats(gs.player.stats); } },
+  { id:'tank',   name:'Immovable',     icon:'🏔', rarity:'legendary', desc:'+30 SIZ, -10 SPD',   apply: (gs) => { gs.player.stats.SIZ = Math.min(STAT_MAX,gs.player.stats.SIZ+30); gs.player.stats.SPD = Math.max(5,gs.player.stats.SPD-10); gs.player.derived = deriveGameStats(gs.player.stats); } },
+  { id:'god',    name:'Godspeed',      icon:'⚔', rarity:'legendary', desc:'+20 SPD, +20 RFX',   apply: (gs) => { gs.player.stats.SPD = Math.min(STAT_MAX,gs.player.stats.SPD+20); gs.player.stats.RFX = Math.min(STAT_MAX,gs.player.stats.RFX+20); gs.player.derived = deriveGameStats(gs.player.stats); } },
+
+  // Curse (bad + upside)
+  { id:'curse1', name:'Heavy Burden',  icon:'💀', rarity:'curse', desc:'-10 SPD, +20 POW',       apply: (gs) => { gs.player.stats.SPD = Math.max(5,gs.player.stats.SPD-10); gs.player.stats.POW = Math.min(STAT_MAX,gs.player.stats.POW+20); gs.player.derived = deriveGameStats(gs.player.stats); } },
+  { id:'curse2', name:'Mana Drought',  icon:'🌵', rarity:'curse', desc:'-15 INT, +15 POW+SPD',   apply: (gs) => { gs.player.stats.INT = Math.max(5,gs.player.stats.INT-15); gs.player.stats.POW = Math.min(STAT_MAX,gs.player.stats.POW+8); gs.player.stats.SPD = Math.min(STAT_MAX,gs.player.stats.SPD+7); gs.player.derived = deriveGameStats(gs.player.stats); } },
+];
+
+function pickUpgrades(lck, count = 3) {
+  const luckMod = lck / 100;
+  const weighted = [];
+  UPGRADE_POOL.forEach(u => {
+    let weight = u.rarity === 'common' ? 60 : u.rarity === 'rare' ? 30 : u.rarity === 'legendary' ? 10 : 15;
+    if (u.rarity === 'rare')      weight += luckMod * 20;
+    if (u.rarity === 'legendary') weight += luckMod * 15;
+    weighted.push({ u, weight });
+  });
+  const result = [];
+  const pool = [...weighted];
+  for (let i = 0; i < count && pool.length; i++) {
+    const total = pool.reduce((a,b) => a + b.weight, 0);
+    let r = Math.random() * total;
+    let idx = 0;
+    for (; idx < pool.length - 1; idx++) {
+      r -= pool[idx].weight;
+      if (r <= 0) break;
+    }
+    result.push(pool[idx].u);
+    pool.splice(idx, 1);
+  }
+  return result;
 }
 
-        function showUpgrades() {
-            gameActive = false;
-            const list = document.getElementById('upgrade-list');
-            list.innerHTML = '';
-            const options = [
-                { n: "Bigger Paddle", f: () => game.p1.w += 20 },
-                { n: "Agility Boost", f: () => game.stats.speedMult += 0.3 },
-                { n: "Greed (2x XP)", f: () => game.stats.xpBonus += 1 }
-            ];
-            options.forEach(opt => {
-                const d = document.createElement('div');
-                d.className = 'card';
-                d.innerText = opt.n;
-                d.onclick = () => { opt.f(); gameActive = true; document.getElementById('overlay').style.display = 'none'; resetBall(); };
-                list.appendChild(d);
-            });
-            document.getElementById('overlay').style.display = 'flex';
-        }
+// ─────────────────────────────────────────────────────────────
+//  SCREEN MANAGER
+// ─────────────────────────────────────────────────────────────
+const screens = {};
+['faction','stats','game','upgrade','gameover'].forEach(id => {
+  screens[id] = document.getElementById(`screen-${id}`);
+});
 
-        function resetBall() {
-            game.ball.x = canvas.width/2; game.ball.y = canvas.height/2;
-            game.ball.vx = (Math.random()-0.5)*5; game.ball.vy = 3;
-        }
+function showScreen(name) {
+  Object.values(screens).forEach(s => s.classList.remove('active'));
+  screens[name].classList.add('active');
+}
 
-        function draw() {
-            ctx.clearRect(0,0,canvas.width,canvas.height);
-            ctx.fillStyle = game.p1.color;
-            ctx.fillRect(game.p1.x, game.p1.y, game.p1.w, game.p1.h);
-            ctx.fillStyle = (myFaction === 'cyan' ? 'var(--red)' : 'var(--cyan)');
-            ctx.fillRect(game.p2.x, game.p2.y, game.p2.w, game.p2.h);
-            ctx.fillStyle = "white";
-            ctx.beginPath(); ctx.arc(game.ball.x, game.ball.y, game.ball.r, 0, Math.PI*2); ctx.fill();
-        }
+// ─────────────────────────────────────────────────────────────
+//  CANVAS SETUP
+// ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
 
-        function loop() { update(); draw(); requestAnimationFrame(loop); }
-        loop();
-    </script>
+function resizeCanvas() {
+  const hudTop    = document.getElementById('hud-top');
+  const abilityBar= document.getElementById('ability-bar-wrap');
+  const controls  = document.getElementById('mobile-controls');
+  const usedH = (hudTop?.offsetHeight || 70) + (abilityBar?.offsetHeight || 18) + (controls?.offsetHeight || 88);
+  const w = Math.min(window.innerWidth, 480);
+  const h = window.innerHeight - usedH;
+  canvas.width  = w;
+  canvas.height = Math.max(h, 200);
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// ─────────────────────────────────────────────────────────────
+//  GAME STATE
+// ─────────────────────────────────────────────────────────────
+let GS = null; // initialized in startMatch()
+
+function makePlayerState(stats, faction, isAI = false) {
+  const derived = deriveGameStats(stats);
+  return {
+    stats, derived, faction, isAI,
+    x: 0, y: 0,                    // set in layout()
+    targetX: 0,
+    hp: 3, maxHp: 3,
+    mana: derived.manaMax * 0.5,
+    ability: 'surge',
+    abilityCooldown: 0,
+    effects: [],
+    score: 0,
+    xp: 0, lvl: 1,
+    active: false                   // set true when game starts
+  };
+}
+
+function initBall() {
+  const angle = (Math.random() < 0.5 ? 1 : -1) * (Math.PI / 4 + Math.random() * Math.PI / 6);
+  const spd = BALL_BASE_SPD;
+  return {
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    vx: Math.cos(angle) * spd,
+    vy: Math.sin(angle) * spd * (Math.random() < 0.5 ? 1 : -1),
+    r: 7,
+    trail: []
+  };
+}
+
+function layoutPaddles() {
+  if (!GS) return;
+  const p = GS.player;
+  const e = GS.enemy;
+  p.y = canvas.height - 22;
+  p.x = canvas.width / 2 - p.derived.paddleW / 2;
+  e.y = 12;
+  e.x = canvas.width / 2 - e.derived.paddleW / 2;
+}
+
+function startMatch() {
+  const playerStats = GS.playerStats;
+  const enemyStats  = { POW:40, SPD:42, SIZ:45, RFX:40, INT:40, LCK:30 };
+
+  GS.player = makePlayerState(playerStats, GS.faction);
+  GS.enemy  = makePlayerState(enemyStats, GS.faction === 'cyan' ? 'red' : 'cyan', true);
+  GS.ball   = initBall();
+  GS.round  = 1;
+  GS.phase  = 'playing';
+  GS.frameCount = 0;
+  GS.scoreFlash = 0;
+
+  layoutPaddles();
+  updateHUD();
+  showScreen('game');
+  resizeCanvas();
+  setTimeout(layoutPaddles, 50); // after resize settles
+}
+
+// ─────────────────────────────────────────────────────────────
+//  INPUT
+// ─────────────────────────────────────────────────────────────
+const INPUT = { left: false, right: false, ability: false };
+let abilityJustPressed = false;
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft'  || e.key === 'a') INPUT.left  = true;
+  if (e.key === 'ArrowRight' || e.key === 'd') INPUT.right = true;
+  if (e.key === ' ' && !INPUT.ability) { INPUT.ability = true; abilityJustPressed = true; }
+  e.preventDefault();
+});
+window.addEventListener('keyup', e => {
+  if (e.key === 'ArrowLeft'  || e.key === 'a') INPUT.left  = false;
+  if (e.key === 'ArrowRight' || e.key === 'd') INPUT.right = false;
+  if (e.key === ' ') INPUT.ability = false;
+});
+
+function setupMobileBtn(id, key) {
+  const el = document.getElementById(id);
+  const on  = (e) => { e.preventDefault(); INPUT[key] = true;  if(key==='ability') abilityJustPressed=true; el.classList.add('active'); };
+  const off = ()  => { INPUT[key] = false; el.classList.remove('active'); };
+  el.addEventListener('touchstart', on,  { passive: false });
+  el.addEventListener('touchend',   off, { passive: false });
+  el.addEventListener('mousedown',  on);
+  window.addEventListener('mouseup', off);
+}
+setupMobileBtn('btn-move-left',  'left');
+setupMobileBtn('btn-move-right', 'right');
+setupMobileBtn('btn-ability',    'ability');
+
+// ─────────────────────────────────────────────────────────────
+//  EFFECTS HELPERS
+// ─────────────────────────────────────────────────────────────
+function getEffect(p, type) {
+  return p.effects.find(e => e.type === type);
+}
+
+function tickEffects(p) {
+  p.effects = p.effects.filter(e => {
+    e.frames--;
+    return e.frames > 0;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+//  ABILITY ACTIVATION
+// ─────────────────────────────────────────────────────────────
+function activateAbility(p, enemy) {
+  const ab = ABILITIES[p.ability];
+  if (!ab) return;
+  if (p.mana < ab.cost) return;
+  if (p.abilityCooldown > 0) return;
+  p.mana -= ab.cost;
+  p.abilityCooldown = ab.cooldown;
+  ab.apply(p, enemy, GS);
+  flashScreen(p.faction === 'cyan' ? 'rgba(0,245,255,0.12)' : 'rgba(255,45,85,0.12)');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PHYSICS UPDATE
+// ─────────────────────────────────────────────────────────────
+function update() {
+  if (!GS || GS.phase !== 'playing') return;
+  GS.frameCount++;
+  const p = GS.player;
+  const e = GS.enemy;
+  const b = GS.ball;
+
+  // ── Ability input
+  if (abilityJustPressed) { activateAbility(p, e); abilityJustPressed = false; }
+
+  // ── Cooldowns
+  if (p.abilityCooldown > 0) p.abilityCooldown--;
+  if (e.abilityCooldown > 0) e.abilityCooldown--;
+
+  // ── Mana regen
+  p.mana = Math.min(p.derived.manaMax, p.mana + p.derived.manaRegen);
+  e.mana = Math.min(e.derived.manaMax, e.mana + e.derived.manaRegen);
+
+  // ── Tick effects
+  tickEffects(p);
+  tickEffects(e);
+
+  // ── AI uses ability sometimes
+  if (e.mana >= (ABILITIES[e.ability]?.cost || 40) && e.abilityCooldown === 0 && Math.random() < 0.004) {
+    activateAbility(e, p);
+  }
+
+  // ── Player movement
+  const speedEff  = getEffect(p, 'paddle-speed');
+  const pSpeed    = p.derived.paddleSpeed * (speedEff ? speedEff.mult : 1);
+  const sizeEff   = getEffect(p, 'paddle-size');
+  const pW        = p.derived.paddleW * (sizeEff ? sizeEff.mult : 1);
+
+  const smooth = p.derived.rfxSmooth;
+  if (INPUT.left)  p.targetX -= pSpeed;
+  if (INPUT.right) p.targetX += pSpeed;
+  p.targetX = Math.max(0, Math.min(canvas.width - pW, p.targetX));
+  p.x += (p.targetX - p.x) * smooth;
+
+  // ── AI movement
+  const slowEff   = getEffect(e, 'paddle-slow');
+  const eSpeed    = e.derived.paddleSpeed * (slowEff ? slowEff.mult : 1);
+  const eW        = e.derived.paddleW;
+  const aiTarget  = b.vx !== 0 ? b.x - eW / 2 : canvas.width / 2 - eW / 2;
+  e.x += (aiTarget - e.x) * (AI_REACTION * (eSpeed / e.derived.paddleSpeed));
+  e.x = Math.max(0, Math.min(canvas.width - eW, e.x));
+
+  // ── Ball trail
+  b.trail.push({ x: b.x, y: b.y });
+  if (b.trail.length > 8) b.trail.shift();
+
+  // ── Ball speed effect
+  const bSpeedEff = getEffect(p, 'ball-speed');
+  const ballMult  = bSpeedEff ? bSpeedEff.mult : 1;
+
+  // ── Magnet effect
+  const magnetEff = getEffect(p, 'magnet');
+  if (magnetEff) {
+    const cx = p.x + pW / 2;
+    b.vx += (cx - b.x) * 0.003;
+  }
+
+  // ── Move ball
+  b.x += b.vx * ballMult;
+  b.y += b.vy * ballMult;
+
+  // ── Wall bounce
+  if (b.x - b.r < 0) { b.x = b.r; b.vx = Math.abs(b.vx); }
+  if (b.x + b.r > canvas.width) { b.x = canvas.width - b.r; b.vx = -Math.abs(b.vx); }
+
+  // ── Paddle collisions
+  const hitP = checkPaddleHit(b, p, pW);
+  const hitE = checkPaddleHit(b, e, eW);
+
+  if (hitP) {
+    applyHit(b, p, pW, 1);   // vy > 0 going up (toward enemy top)
+    p.mana = Math.min(p.derived.manaMax, p.mana + 8);
+    p.xp++;
+  }
+  if (hitE) {
+    applyHit(b, e, eW, -1);
+    e.mana = Math.min(e.derived.manaMax, e.mana + 8);
+  }
+
+  // ── Scoring
+  if (b.y + b.r < 0) {
+    // Ball passed enemy's end — player scores
+    score(p, e);
+  } else if (b.y - b.r > canvas.height) {
+    // Ball passed player's end — enemy scores
+    score(e, p);
+  }
+
+  updateHUD();
+}
+
+function checkPaddleHit(b, p, pW) {
+  const pH = p.derived.paddleH;
+  return (
+    b.x + b.r > p.x &&
+    b.x - b.r < p.x + pW &&
+    b.y + b.r > p.y &&
+    b.y - b.r < p.y + pH
+  );
+}
+
+function applyHit(b, p, pW, dirSign) {
+  // dirSign: 1 = player paddle (ball should go up), -1 = enemy paddle (ball should go down)
+  const hitPoint = (b.x - (p.x + pW / 2)) / (pW / 2); // -1 to 1
+  const spinEff  = getEffect(p, 'next-hit-spin');
+  const spinMult = spinEff ? spinEff.mult : 1;
+
+  // Increase speed on each hit
+  const speed = Math.min(
+    Math.sqrt(b.vx * b.vx + b.vy * b.vy) * (1 + p.derived.ballSpeedMult * 0.06),
+    BALL_MAX_SPD
+  );
+
+  b.vx = hitPoint * 7 * spinMult;
+  // dirSign 1 = player paddle, ball must go UP (negative vy)
+  // dirSign -1 = enemy paddle, ball must go DOWN (positive vy)
+  b.vy = dirSign === 1 ? -Math.abs(speed * 0.85) : Math.abs(speed * 0.85);
+
+  // Nudge ball out of paddle
+  if (dirSign === 1) b.y = p.y - b.r - 1;
+  else               b.y = p.y + p.derived.paddleH + b.r + 1;
+
+  // Remove one-shot spin
+  if (spinEff) p.effects = p.effects.filter(e => e.type !== 'next-hit-spin');
+}
+
+function score(scorer, loser) {
+  scorer.score++;
+  GS.scoreFlash = 30;
+  flashScreen(scorer === GS.player
+    ? 'rgba(0,245,255,0.15)'
+    : 'rgba(255,45,85,0.15)'
+  );
+  resetBall();
+  checkRoundEnd();
+}
+
+function resetBall() {
+  Object.assign(GS.ball, initBall());
+}
+
+function checkRoundEnd() {
+  const p = GS.player, e = GS.enemy;
+  const roundWinner = p.score >= SCORE_TO_WIN ? p
+                    : e.score >= SCORE_TO_WIN ? e
+                    : null;
+  if (!roundWinner) return;
+
+  // Reset per-round scores
+  p.score = 0; e.score = 0;
+
+  if (roundWinner === p) {
+    p.lvl++;
+    p.xp += 20;
+    GS.phase = 'upgrade';
+    showUpgradeScreen();
+  } else {
+    p.hp--;
+    if (p.hp <= 0) {
+      endMatch(false);
+    } else {
+      // Enemy wins round — no upgrade for player, continue
+      GS.round++;
+      GS.phase = 'playing';
+      resetBall();
+    }
+  }
+  updateHUD();
+}
+
+function endMatch(playerWon) {
+  GS.phase = 'gameover';
+  const res = document.getElementById('gameover-result');
+  const ttl = document.getElementById('gameover-title');
+  const sts = document.getElementById('gameover-stats');
+
+  res.textContent = playerWon ? 'VICTORY' : 'DEFEATED';
+  res.className   = 'gameover-result ' + (playerWon ? 'win' : 'lose');
+  ttl.textContent = playerWon ? 'YOU CONQUERED THE ARENA' : 'THE ARENA CLAIMS ANOTHER';
+  sts.innerHTML   = `
+    Rounds Cleared: ${GS.round - 1}<br>
+    XP Earned: ${GS.player.xp}<br>
+    Level Reached: ${GS.player.lvl}<br>
+    Faction: ${FACTION[GS.faction].name}
+  `;
+  showScreen('gameover');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  HUD UPDATE
+// ─────────────────────────────────────────────────────────────
+function updateHUD() {
+  if (!GS || !GS.player) return;
+  const p = GS.player, e = GS.enemy;
+
+  document.getElementById('score-player').textContent = p.score;
+  document.getElementById('score-enemy').textContent  = e.score;
+  document.getElementById('round-num').textContent    = GS.round;
+  document.getElementById('xp-val').textContent       = p.xp;
+  document.getElementById('lvl-val').textContent      = p.lvl;
+
+  // Bars
+  pct('hp-bar',       p.hp / p.maxHp * 100);
+  pct('mp-bar',       p.mana / p.derived.manaMax * 100);
+  pct('enemy-hp-bar', e.hp / e.maxHp * 100);
+  pct('enemy-mp-bar', e.mana / e.derived.manaMax * 100);
+
+  // Ability HUD
+  const ab = ABILITIES[p.ability];
+  if (ab) {
+    document.getElementById('ability-name').textContent = ab.name;
+    document.getElementById('ability-cost').textContent = ab.cost + ' MP';
+    const abDef = ABILITIES[p.ability];
+    const cdPct = p.abilityCooldown > 0 ? (1 - p.abilityCooldown / abDef.cooldown) * 100 : 100;
+    pct('ability-fill', cdPct);
+    document.getElementById('ability-status').textContent =
+      p.abilityCooldown > 0 ? 'CHARGING' : p.mana >= abDef.cost ? 'READY' : 'LOW MP';
+  }
+}
+
+function pct(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.style.width = Math.max(0, Math.min(100, val)) + '%';
+}
+
+// ─────────────────────────────────────────────────────────────
+//  RENDER
+// ─────────────────────────────────────────────────────────────
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!GS || GS.phase === 'upgrade' || GS.phase === 'gameover') return;
+
+  const p  = GS.player;
+  const e  = GS.enemy;
+  const b  = GS.ball;
+  const cf = FACTION[GS.faction];
+  const ef = FACTION[GS.faction === 'cyan' ? 'red' : 'cyan'];
+
+  // ── Center line
+  ctx.setLineDash([6, 8]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, canvas.height / 2);
+  ctx.lineTo(canvas.width, canvas.height / 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ── Ball trail
+  b.trail.forEach((t, i) => {
+    const alpha = (i / b.trail.length) * 0.4;
+    const r = b.r * (i / b.trail.length) * 0.8;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+    ctx.fill();
+  });
+
+  // ── Ball glow
+  const grd = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r * 3);
+  grd.addColorStop(0, 'rgba(255,255,255,0.3)');
+  grd.addColorStop(1, 'transparent');
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, b.r * 3, 0, Math.PI * 2);
+  ctx.fillStyle = grd;
+  ctx.fill();
+
+  // ── Ball
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+  ctx.fillStyle = 'white';
+  ctx.shadowColor = 'white';
+  ctx.shadowBlur = 12;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // ── Draw paddle
+  const drawPaddle = (pp, col, glowCol, pWidth) => {
+    const x = pp.x, y = pp.y, w = pWidth, h = pp.derived.paddleH;
+    // Glow
+    ctx.shadowColor = glowCol;
+    ctx.shadowBlur  = 16;
+    ctx.fillStyle   = col;
+    ctx.beginPath();
+    const r3 = 3;
+    ctx.moveTo(x + r3, y);
+    ctx.lineTo(x + w - r3, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r3);
+    ctx.lineTo(x + w, y + h - r3);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r3, y + h);
+    ctx.lineTo(x + r3, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r3);
+    ctx.lineTo(x, y + r3);
+    ctx.quadraticCurveTo(x, y, x + r3, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // Shine strip
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.fillRect(x + 4, y + 1, w - 8, 2);
+  };
+
+  const pSizeEff = getEffect(p, 'paddle-size');
+  const pW = p.derived.paddleW * (pSizeEff ? pSizeEff.mult : 1);
+
+  // Freeze tint on enemy
+  const eSlow = getEffect(e, 'paddle-slow');
+  const eColor = eSlow ? '#aaddff' : ef.color;
+
+  drawPaddle(p, cf.color, cf.glow, pW);
+  drawPaddle(e, eColor,   ef.glow, e.derived.paddleW);
+
+  // ── Score flash overlay
+  if (GS.scoreFlash > 0) {
+    GS.scoreFlash--;
+    ctx.fillStyle = `rgba(255,255,255,${GS.scoreFlash / 30 * 0.06})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // ── Active effect indicators on paddles
+  if (getEffect(p, 'ball-speed')) {
+    ctx.fillStyle = 'rgba(255,215,0,0.15)';
+    ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+  }
+  if (getEffect(p, 'magnet')) {
+    ctx.fillStyle = 'rgba(136,136,255,0.08)';
+    ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  FLASH SCREEN EFFECT
+// ─────────────────────────────────────────────────────────────
+function flashScreen(color) {
+  const el = document.createElement('div');
+  el.className = 'flash-overlay';
+  el.style.background = color;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 250);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  GAME LOOP
+// ─────────────────────────────────────────────────────────────
+function loop() {
+  update();
+  render();
+  requestAnimationFrame(loop);
+}
+loop();
+
+// ─────────────────────────────────────────────────────────────
+//  FACTION SELECT SCREEN
+// ─────────────────────────────────────────────────────────────
+document.getElementById('card-cyan').addEventListener('click', () => chooseFaction('cyan'));
+document.getElementById('card-red').addEventListener('click',  () => chooseFaction('red'));
+document.querySelector('.cyan-btn').addEventListener('click', (e) => { e.stopPropagation(); chooseFaction('cyan'); });
+document.querySelector('.red-btn').addEventListener('click',  (e) => { e.stopPropagation(); chooseFaction('red'); });
+
+function chooseFaction(faction) {
+  GS = {
+    faction,
+    playerStats: {},
+    player: null, enemy: null,
+    ball: null,
+    round: 1, phase: 'idle',
+    frameCount: 0,
+    scoreFlash: 0
+  };
+  buildStatScreen(faction);
+  showScreen('stats');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  STAT ALLOCATION SCREEN
+// ─────────────────────────────────────────────────────────────
+function buildStatScreen(faction) {
+  const col = FACTION[faction].color;
+  const container = document.getElementById('stat-sliders');
+  container.innerHTML = '';
+
+  // Init default stats
+  const stats = {};
+  STAT_DEFS.forEach(s => stats[s.key] = s.defaultVal);
+  GS.playerStats = stats;
+
+  STAT_DEFS.forEach(def => {
+    const row = document.createElement('div');
+    row.className = 'stat-row';
+    row.innerHTML = `
+      <div class="stat-label">${def.key}<span>${def.desc}</span></div>
+      <input class="stat-slider" type="range" min="1" max="${STAT_MAX}"
+             value="${def.defaultVal}" data-stat="${def.key}" style="accent-color:${col}" />
+      <div class="stat-val" id="val-${def.key}">${def.defaultVal}</div>
+    `;
+    container.appendChild(row);
+  });
+
+  updatePointsLeft();
+  attachSliderListeners();
+}
+
+function attachSliderListeners() {
+  document.querySelectorAll('.stat-slider').forEach(slider => {
+    slider.addEventListener('input', () => {
+      const key = slider.dataset.stat;
+      const newVal = parseInt(slider.value);
+      const oldVal = GS.playerStats[key];
+      const delta  = newVal - oldVal;
+      const remaining = getPointsRemaining();
+
+      if (delta > remaining) {
+        slider.value = oldVal + remaining;
+        GS.playerStats[key] = oldVal + remaining;
+      } else {
+        GS.playerStats[key] = newVal;
+      }
+
+      document.getElementById(`val-${key}`).textContent = GS.playerStats[key];
+      updatePointsLeft();
+    });
+  });
+}
+
+function getPointsRemaining() {
+  const used = Object.values(GS.playerStats).reduce((a, b) => a + b, 0);
+  return STAT_BUDGET - used;
+}
+
+function updatePointsLeft() {
+  document.getElementById('points-left').textContent = getPointsRemaining();
+}
+
+// Archetype buttons
+document.querySelectorAll('.arch-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const raw = ARCHETYPES[btn.dataset.arch];
+    const arch = normalizeArchetype(raw);
+    STAT_DEFS.forEach(def => {
+      GS.playerStats[def.key] = arch[def.key] || def.defaultVal;
+      const slider = document.querySelector(`[data-stat="${def.key}"]`);
+      const valEl  = document.getElementById(`val-${def.key}`);
+      if (slider) slider.value = GS.playerStats[def.key];
+      if (valEl)  valEl.textContent = GS.playerStats[def.key];
+    });
+    updatePointsLeft();
+  });
+});
+
+document.getElementById('confirm-stats').addEventListener('click', () => {
+  // Set faction HUD labels
+  const f  = GS.faction;
+  const ef = f === 'cyan' ? 'red' : 'cyan';
+  document.getElementById('hud-faction-name').textContent = FACTION[f].name;
+  document.getElementById('hud-faction-name').style.color = FACTION[f].color;
+  document.getElementById('hud-enemy-name').textContent   = FACTION[ef].name;
+  document.getElementById('hud-enemy-name').style.color   = FACTION[ef].color;
+  document.getElementById('score-player').style.color     = FACTION[f].color;
+
+  // Sync player target position
+  startMatch();
+  GS.player.targetX = GS.player.x;
+});
+
+// ─────────────────────────────────────────────────────────────
+//  UPGRADE SCREEN
+// ─────────────────────────────────────────────────────────────
+function showUpgradeScreen() {
+  const p = GS.player;
+  document.getElementById('upgrade-round').textContent = GS.round;
+  document.getElementById('upgrade-score').textContent = p.xp;
+
+  const upgrades = pickUpgrades(p.stats.LCK, 3);
+  const container = document.getElementById('upgrade-cards');
+  container.innerHTML = '';
+
+  upgrades.forEach(upg => {
+    const card = document.createElement('div');
+    card.className = `upgrade-card rarity-${upg.rarity}`;
+    card.innerHTML = `
+      <div class="upgrade-rarity-tag">${upg.rarity.toUpperCase()}</div>
+      <div class="upgrade-icon">${upg.icon}</div>
+      <div class="upgrade-card-name">${upg.name}</div>
+      <div class="upgrade-card-desc">${upg.desc}</div>
+    `;
+    card.addEventListener('click', () => {
+      upg.apply(GS);
+      GS.round++;
+      GS.phase = 'playing';
+      layoutPaddles();
+      resetBall();
+      updateHUD();
+      showScreen('game');
+    });
+    container.appendChild(card);
+  });
+
+  showScreen('upgrade');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PLAY AGAIN
+// ─────────────────────────────────────────────────────────────
+document.getElementById('btn-play-again').addEventListener('click', () => {
+  GS = null;
+  showScreen('faction');
+});
+
+// ─────────────────────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────────────────────
+showScreen('faction');
+
+</script>
 </body>
 </html>
