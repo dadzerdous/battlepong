@@ -5,148 +5,159 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Battle Pong RPG</title>
     <style>
-        body { margin: 0; background: #1a1122; color: #00ffcc; font-family: 'Courier New', Courier, monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
-        canvas { background: #050505; border: 4px solid #333; box-shadow: 0 0 30px rgba(0,255,200,0.2); margin-top: 10px; touch-action: none; border-radius: 8px; }
-        #ui { width: 100%; max-width: 400px; padding: 15px; display: flex; justify-content: space-between; font-weight: bold; text-shadow: 0 0 5px #00ffcc; }
-        .controls-hint { font-size: 10px; color: #888; margin-top: 5px; }
+        :root { --neon: #00ffcc; --danger: #ff4444; }
+        body { margin: 0; background: #0a0a0c; color: var(--neon); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; display: flex; flex-direction: column; align-items: center; user-select: none; }
+        
+        #ui-top { width: 100%; max-width: 400px; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; }
+        
+        canvas { background: #000; border: 2px solid #333; border-radius: 10px; touch-action: none; }
+
+        /* Controls Section */
+        #controls { width: 100%; max-width: 400px; display: flex; gap: 10px; padding: 20px; box-sizing: border-box; }
+        .btn { flex: 1; height: 80px; background: #1a1a1a; border: 2px solid var(--neon); color: var(--neon); border-radius: 10px; 
+               display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; cursor: pointer; }
+        .btn:active { background: var(--neon); color: #000; }
+
+        /* Upgrade Overlay */
+        #overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); 
+                    flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
+        .upgrade-card { width: 250px; padding: 15px; margin: 10px; background: #222; border: 1px solid var(--neon); border-radius: 8px; 
+                        text-align: center; cursor: pointer; transition: 0.2s; }
+        .upgrade-card:hover { background: #333; transform: scale(1.05); }
     </style>
 </head>
 <body>
 
-    <div id="ui">
-        <div>PLAYER XP: <span id="xp">0</span></div>
-        <div>LEVEL: <span id="lvl">1</span></div>
+    <div id="ui-top">
+        <div>XP: <span id="xp-val">0</span></div>
+        <div>LVL: <span id="lvl-val">1</span></div>
+        <div>STREAK: <span id="streak-val">0</span></div>
     </div>
     
     <canvas id="gameCanvas"></canvas>
-    
-    <div class="controls-hint">Tap Left/Right or Use Arrow Keys</div>
-    <div id="debug" style="font-size: 10px; color: #444; margin-top: 10px;">Avg Input: 0</div>
+
+    <div id="controls">
+        <div class="btn" id="btn-left">◀</div>
+        <div class="btn" id="btn-right">▶</div>
+    </div>
+
+    <div id="overlay">
+        <h2>SELECT UPGRADE</h2>
+        <div id="upgrade-list"></div>
+    </div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
+        canvas.width = Math.min(window.innerWidth - 20, 400);
+        canvas.height = window.innerHeight * 0.5;
 
-        // Scale canvas for mobile
-        canvas.width = Math.min(window.innerWidth - 30, 400);
-        canvas.height = window.innerHeight * 0.65;
-
-        // --- GAME STATE ---
+        let gameActive = true;
+        
         const game = {
-            ball: { x: canvas.width/2, y: canvas.height/2, vx: 4, vy: 4, r: 8 },
-            p1: { // User/Bottom
-                x: canvas.width/2 - 40, y: canvas.height - 30, w: 80, h: 12,
-                baseSpeed: 10, xp: 0, lvl: 1, color: '#00ffcc'
-            },
-            p2: { // AI/Top
-                x: canvas.width/2 - 40, y: 20, w: 80, h: 12,
-                speed: 3, color: '#ff4444'
-            },
-            commandBuffer: []
+            ball: { x: canvas.width/2, y: canvas.height/2, vx: 3, vy: 3, r: 7 },
+            p1: { x: canvas.width/2 - 40, y: canvas.height - 25, w: 80, h: 10, speed: 8, xp: 0, lvl: 1 },
+            p2: { x: canvas.width/2 - 40, y: 15, w: 80, h: 10, speed: 3.5 },
+            buffer: [],
+            stats: { paddleMult: 1, speedMult: 1, luck: 1 }
         };
 
+        // --- UPGRADE OPTIONS ---
+        const upgrades = [
+            { name: "Wider Paddle", effect: () => { game.p1.w += 15; } },
+            { name: "Turbo Speed", effect: () => { game.stats.speedMult += 0.2; } },
+            { name: "Extra XP Gain", effect: () => { game.stats.luck += 0.5; } },
+            { name: "Ball Gravity", effect: () => { game.ball.r += 2; } }
+        ];
+
         // --- INPUTS ---
-        window.addEventListener('keydown', e => {
-            if (e.key === "ArrowLeft") game.commandBuffer.push(-1);
-            if (e.key === "ArrowRight") game.commandBuffer.push(1);
-        });
+        const addInput = (dir) => { if(gameActive) game.buffer.push(dir); };
+        document.getElementById('btn-left').onmousedown = () => addInput(-1);
+        document.getElementById('btn-right').onmousedown = () => addInput(1);
+        document.getElementById('btn-left').ontouchstart = (e) => { e.preventDefault(); addInput(-1); };
+        document.getElementById('btn-right').ontouchstart = (e) => { e.preventDefault(); addInput(1); };
 
-        canvas.addEventListener('touchstart', e => {
-            const touchX = e.touches[0].clientX;
-            const side = touchX < window.innerWidth / 2 ? -1 : 1;
-            game.commandBuffer.push(side);
-        });
+        function showUpgrades() {
+            gameActive = false;
+            const container = document.getElementById('upgrade-list');
+            container.innerHTML = '';
+            const shuffled = upgrades.sort(() => 0.5 - Math.random()).slice(0, 3);
+            
+            shuffled.forEach(up => {
+                const div = document.createElement('div');
+                div.className = 'upgrade-card';
+                div.innerText = up.name;
+                div.onclick = () => {
+                    up.effect();
+                    gameActive = true;
+                    document.getElementById('overlay').style.display = 'none';
+                    resetBall();
+                };
+                container.appendChild(div);
+            });
+            document.getElementById('overlay').style.display = 'flex';
+        }
 
-        // --- GAME LOGIC ---
         function update() {
-            // 1. Process "Twitch-style" Average Movement
-            let moveAvg = 0;
-            if (game.commandBuffer.length > 0) {
-                const sum = game.commandBuffer.reduce((a, b) => a + b, 0);
-                moveAvg = sum / game.commandBuffer.length;
-                game.commandBuffer = []; // Clear for next frame
+            if (!gameActive) return;
+
+            // Command Averaging
+            if (game.buffer.length > 0) {
+                let avg = game.buffer.reduce((a,b) => a+b, 0) / game.buffer.length;
+                game.p1.x += avg * (game.p1.speed * game.stats.speedMult);
+                game.buffer = [];
             }
-            document.getElementById('debug').innerText = `Avg Input: ${moveAvg.toFixed(2)}`;
 
-            // 2. Apply RPG Stats (0.05x bonus per level)
-            const speedBonus = 1 + (game.p1.lvl * 0.05);
-            game.p1.x += moveAvg * (game.p1.baseSpeed * speedBonus);
-
-            // Boundary checks
             game.p1.x = Math.max(0, Math.min(canvas.width - game.p1.w, game.p1.x));
 
-            // 3. Move Ball
+            // Ball Physics
             game.ball.x += game.ball.vx;
             game.ball.y += game.ball.vy;
-
-            // 4. Wall Bounce
             if (game.ball.x < 0 || game.ball.x > canvas.width) game.ball.vx *= -1;
 
-            // 5. AI Logic (Smooth follow)
-            let aiEase = 0.08;
-            game.p2.x += (game.ball.x - (game.p2.x + game.p2.w/2)) * aiEase;
+            // AI (Opponent)
+            game.p2.x += (game.ball.x - (game.p2.x + game.p2.w/2)) * 0.1;
 
-            // 6. Collisions
-            handleCollision(game.p1);
-            handleCollision(game.p2);
+            // Collisions
+            if (checkCollision(game.p1)) {
+                game.p1.xp += Math.floor(5 * game.stats.luck);
+                document.getElementById('xp-val').innerText = game.p1.xp;
+            }
+            checkCollision(game.p2);
 
-            // 7. Scoring & XP
-            if (game.ball.y < 0) { // Player won point
-                game.p1.xp += 10;
-                checkLevelUp();
-                resetBall();
+            // Scoring
+            if (game.ball.y < 0) { 
+                game.p1.lvl++;
+                document.getElementById('lvl-val').innerText = game.p1.lvl;
+                showUpgrades(); 
             }
-            if (game.ball.y > canvas.height) { // AI won point
-                resetBall();
-            }
+            if (game.ball.y > canvas.height) resetBall();
         }
 
-        function handleCollision(p) {
-            if (game.ball.x > p.x && game.ball.x < p.x + p.w) {
-                if (Math.abs(game.ball.y - p.y) < p.h) {
-                    game.ball.vy *= -1.05; // Slightly speed up
-                    // Angle ball based on where it hit paddle
-                    let diff = game.ball.x - (p.x + p.w/2);
-                    game.ball.vx = diff * 0.2;
-                }
+        function checkCollision(p) {
+            if (game.ball.x > p.x && game.ball.x < p.x + p.w && 
+                Math.abs(game.ball.y - p.y) < p.h) {
+                game.ball.vy *= -1.05;
+                return true;
             }
-        }
-
-        function checkLevelUp() {
-            game.p1.lvl = Math.floor(game.p1.xp / 50) + 1;
-            document.getElementById('xp').innerText = game.p1.xp;
-            document.getElementById('lvl').innerText = game.p1.lvl;
+            return false;
         }
 
         function resetBall() {
             game.ball.x = canvas.width / 2;
             game.ball.y = canvas.height / 2;
-            game.ball.vx = (Math.random() - 0.5) * 8;
-            game.ball.vy = 4;
+            game.ball.vx = (Math.random() - 0.5) * 6;
+            game.ball.vy = 3;
         }
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Neon Glow
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = game.p1.color;
-
-            // Paddles
-            ctx.fillStyle = game.p1.color;
+            ctx.fillStyle = "#00ffcc";
             ctx.fillRect(game.p1.x, game.p1.y, game.p1.w, game.p1.h);
-            
-            ctx.shadowColor = game.p2.color;
-            ctx.fillStyle = game.p2.color;
+            ctx.fillStyle = "#ff4444";
             ctx.fillRect(game.p2.x, game.p2.y, game.p2.w, game.p2.h);
-            
-            // Ball
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = "white";
             ctx.fillStyle = "white";
-            ctx.beginPath();
-            ctx.arc(game.ball.x, game.ball.y, game.ball.r, 0, Math.PI*2);
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(game.ball.x, game.ball.y, game.ball.r, 0, Math.PI*2); ctx.fill();
         }
 
         function loop() {
@@ -154,7 +165,6 @@
             draw();
             requestAnimationFrame(loop);
         }
-
         loop();
     </script>
 </body>
