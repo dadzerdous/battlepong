@@ -746,6 +746,74 @@ const ARCHETYPES = {
   trick: { POW:20,SPD:30,SIZ:20,JUK:55,INT:55,LCK:20 }
 };
 
+  const WS_URL = 'wss://YOUR-RENDER-URL.onrender.com';
+let ws = null;
+let mp = {
+  connected: false,
+  roomCode: null,
+  side: null,
+  host: false,
+  state: null
+};
+
+function connectMultiplayer() {
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    mp.connected = true;
+    console.log('[WS] connected');
+  };
+
+  ws.onclose = () => {
+    mp.connected = false;
+    console.log('[WS] disconnected');
+  };
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    console.log('[WS IN]', msg);
+
+    if (msg.type === 'room_joined') {
+      mp.roomCode = msg.code;
+      mp.side = msg.side;
+      mp.host = msg.host;
+    }
+
+    if (msg.type === 'state') {
+      mp.state = msg;
+    }
+
+    if (msg.type === 'match_over') {
+      console.log('Winner:', msg.winner);
+    }
+  };
+}
+  function sendWS(data) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify(data));
+}
+
+function createRoom(playerName) {
+  sendWS({ type: 'create_room', name: playerName });
+}
+
+function joinRoom(code, playerName) {
+  sendWS({ type: 'join_room', code, name: playerName });
+}
+
+function startOnlineMatch() {
+  sendWS({ type: 'start_match' });
+}
+
+function sendInputState() {
+  sendWS({
+    type: 'input',
+    left: INPUT.left,
+    right: INPUT.right,
+    ability: INPUT.ability
+  });
+}
+
 function normalizeArch(arch) {
   const v={...arch}, total=Object.values(v).reduce((a,b)=>a+b,0), scale=200/total;
   Object.keys(v).forEach(k=>v[k]=Math.min(STAT_MAX,Math.max(5,Math.round(v[k]*scale))));
