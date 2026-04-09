@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>BATTLE PONG</title>
+  <title>v1BATTLE PONG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
   <style>
@@ -1008,14 +1008,16 @@ const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
 
 function resizeCanvas() {
-  const hudTop    = document.getElementById('hud-top');
-  const abilityBar= document.getElementById('ability-bar-wrap');
-  const controls  = document.getElementById('mobile-controls');
-  const usedH = (hudTop?.offsetHeight || 70) + (abilityBar?.offsetHeight || 18) + (controls?.offsetHeight || 88);
-  const w = Math.min(window.innerWidth, 480);
-  const h = window.innerHeight - usedH;
-  canvas.width  = w;
-  canvas.height = Math.max(h, 200);
+  const hudTop = document.getElementById('hud-top');
+  const abilityBar = document.getElementById('ability-bar-wrap');
+  const controls = document.getElementById('mobile-controls');
+  
+  // Calculate exactly how much space is taken by the UI
+  const usedH = (hudTop?.offsetHeight || 0) + (abilityBar?.offsetHeight || 0) + (controls?.offsetHeight || 0);
+  
+  // Set width to phone width (max 480) and height to the remaining gap
+  canvas.width = Math.min(window.innerWidth, 480);
+  canvas.height = window.innerHeight - usedH - 20; // 20px padding for safety
 }
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
