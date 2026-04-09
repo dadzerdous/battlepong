@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>v2BATTLE PONG</title>
+  <title>v3BATTLE PONG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
   <style>
@@ -1073,26 +1073,24 @@ function layoutPaddles() {
   console.log("Paddles placed at Y:", e.y, "and", p.y);
 }
 function startMatch() {
-  const playerStats = GS.playerStats;
-  const enemyStats = { POW: 40, SPD: 42, SIZ: 45, RFX: 40, INT: 40, LCK: 30 };
+  const playerStats = GS.playerStats;
+  const enemyStats = { POW: 40, SPD: 42, SIZ: 45, RFX: 40, INT: 40, LCK: 30 };
 
-  GS.player = makePlayerState(playerStats, GS.faction);
-  GS.enemy = makePlayerState(enemyStats, GS.faction === 'cyan' ? 'red' : 'cyan', true);
-  
-  showScreen('game');
+  GS.player = makePlayerState(playerStats, GS.faction);
+  GS.enemy = makePlayerState(enemyStats, GS.faction === 'cyan' ? 'red' : 'cyan', true);
 
-  // Use a Timeout instead of just a Frame to ensure CSS transitions finish
-  setTimeout(() => {
-    resizeCanvas();
-    layoutPaddles();
-    GS.ball = initBall();
-    GS.round = 1;
-    GS.phase = 'playing';
-    GS.frameCount = 0;
-    GS.scoreFlash = 0;
-    updateHUD();
-    console.log("Game fully initialized");
-  }, 150); // 150ms is the sweet spot for mobile browsers
+  resizeCanvas();
+  layoutPaddles();
+  GS.ball = initBall();
+  GS.round = 1;
+  GS.phase = 'playing';
+  GS.frameCount = 0;
+  GS.scoreFlash = 0;
+  updateHUD();
+
+  showScreen('game');
+
+  console.log("Game fully initialized");
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1392,7 +1390,16 @@ function pct(id, val) {
 // ─────────────────────────────────────────────────────────────
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!GS || GS.phase === 'upgrade' || GS.phase === 'gameover') return;
+
+  if (
+    !GS ||
+    !GS.player ||
+    !GS.enemy ||
+    !GS.ball ||
+    GS.phase !== 'playing'
+  ) {
+    return;
+  }
 
   const p  = GS.player;
   const e  = GS.enemy;
