@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>v1BATTLE PONG</title>
+  <title>v2BATTLE PONG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
   <style>
@@ -1008,16 +1008,16 @@ const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
 
 function resizeCanvas() {
-  const hudTop = document.getElementById('hud-top');
-  const abilityBar = document.getElementById('ability-bar-wrap');
-  const controls = document.getElementById('mobile-controls');
-  
-  // Calculate exactly how much space is taken by the UI
-  const usedH = (hudTop?.offsetHeight || 0) + (abilityBar?.offsetHeight || 0) + (controls?.offsetHeight || 0);
-  
-  // Set width to phone width (max 480) and height to the remaining gap
-  canvas.width = Math.min(window.innerWidth, 480);
-  canvas.height = window.innerHeight - usedH - 20; // 20px padding for safety
+  const hudTop = document.getElementById('hud-top');
+  const abilityBar = document.getElementById('ability-bar-wrap');
+  const controls = document.getElementById('mobile-controls');
+  
+  // Calculate space, but ensure we never go below 300px height
+  const usedH = (hudTop?.offsetHeight || 70) + (abilityBar?.offsetHeight || 20) + (controls?.offsetHeight || 90);
+  
+  canvas.width = Math.min(window.innerWidth, 480);
+  const calculatedHeight = window.innerHeight - usedH - 20;
+  canvas.height = Math.max(calculatedHeight, 400); // SAFETY: Minimum 400px high
 }
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
@@ -1058,36 +1058,41 @@ function initBall() {
 }
 
 function layoutPaddles() {
-  if (!GS) return;
-  const p = GS.player;
-  const e = GS.enemy;
-  p.y = canvas.height - 22;
-  p.x = canvas.width / 2 - p.derived.paddleW / 2;
-  e.y = 12;
-  e.x = canvas.width / 2 - e.derived.paddleW / 2;
-}
-
-function startMatch() {
-  const playerStats = GS.playerStats;
-  const enemyStats = { POW: 40, SPD: 42, SIZ: 45, RFX: 40, INT: 40, LCK: 30 };
-
-  GS.player = makePlayerState(playerStats, GS.faction);
-  GS.enemy = makePlayerState(enemyStats, GS.faction === 'cyan' ? 'red' : 'cyan', true);
+  if (!GS || !GS.player || !GS.enemy) return;
+  const p = GS.player;
+  const e = GS.enemy;
   
-  // 1. Show the screen first
-  showScreen('game');
+  // Hard-coded offsets to ensure they are visible
+  p.y = canvas.height - 40; 
+  p.x = canvas.width / 2 - p.derived.paddleW / 2;
+  p.targetX = p.x;
 
-  // 2. THE FIX: Wait for the browser to render the screen and calculate sizes
-  requestAnimationFrame(() => {
-    resizeCanvas();   // Ensure canvas fills the space between HUD and Controls
-    layoutPaddles();  // Now canvas.height is correct, paddles will be in-bounds
-    GS.ball = initBall();
-    GS.round = 1;
-    GS.phase = 'playing';
-    GS.frameCount = 0;
-    GS.scoreFlash = 0;
-    updateHUD();
-  });
+  e.y = 20; 
+  e.x = canvas.width / 2 - e.derived.paddleW / 2;
+  
+  console.log("Paddles placed at Y:", e.y, "and", p.y);
+}
+function startMatch() {
+  const playerStats = GS.playerStats;
+  const enemyStats = { POW: 40, SPD: 42, SIZ: 45, RFX: 40, INT: 40, LCK: 30 };
+
+  GS.player = makePlayerState(playerStats, GS.faction);
+  GS.enemy = makePlayerState(enemyStats, GS.faction === 'cyan' ? 'red' : 'cyan', true);
+  
+  showScreen('game');
+
+  // Use a Timeout instead of just a Frame to ensure CSS transitions finish
+  setTimeout(() => {
+    resizeCanvas();
+    layoutPaddles();
+    GS.ball = initBall();
+    GS.round = 1;
+    GS.phase = 'playing';
+    GS.frameCount = 0;
+    GS.scoreFlash = 0;
+    updateHUD();
+    console.log("Game fully initialized");
+  }, 150); // 150ms is the sweet spot for mobile browsers
 }
 
 // ─────────────────────────────────────────────────────────────
