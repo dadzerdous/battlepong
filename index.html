@@ -5,6 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>BATTLE PONG</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
   <style>
@@ -711,6 +712,11 @@ html, body {
 <script>
 'use strict';
 
+  const SUPABASE_URL  = 'https://dutpqlqkjzvsdxzsnrph.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_hwkSWSvvzzJdvoGsf2ysCQ_O_joaddY';
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
 const STAT_BUDGET  = 200;
 const STAT_MAX     = 80;
 const SCORE_TO_WIN  = 3;
@@ -1370,170 +1376,185 @@ function flashScreen(color){
 
 
 // ══════════════════════════════════════════════
-// PROFILE SYSTEM
+// PROFILE SYSTEM — Supabase backend
 // ══════════════════════════════════════════════
-const PROFILES_KEY = 'bp_profiles';
 
-function loadProfiles() {
-  try { return JSON.parse(localStorage.getItem(PROFILES_KEY)) || []; }
-  catch(e) { return []; }
-}
+// !! PASTE YOUR SUPABASE CREDENTIALS HERE !!
+const SUPABASE_URL  = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY';
 
-function saveProfiles(profiles) {
-  localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
-}
+const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-function createProfile(name) {
-  const profiles = loadProfiles();
-  const profile = {
-    id: Date.now().toString(),
-    name: name.trim().toUpperCase() || 'PLAYER',
-    faction: null,
-    stats: null,        // last used build
-    ability: 'surge',
-    xp: 0,
-    wins: 0,
-    losses: 0,
-    roundWins: 0,
-    longestStreak: 0,
-    createdAt: Date.now()
-  };
-  profiles.push(profile);
-  saveProfiles(profiles);
-  return profile;
-}
+// localStorage cache — used as offline fallback
+const CACHE_KEY = 'bp_profiles_cache';
+function cacheProfiles(p){ try{ localStorage.setItem(CACHE_KEY,JSON.stringify(p)); }catch(e){} }
+function getCachedProfiles(){ try{ return JSON.parse(localStorage.getItem(CACHE_KEY))||[]; }catch(e){ return []; } }
 
-function updateProfile(id, updates) {
-  const profiles = loadProfiles();
-  const idx = profiles.findIndex(p=>p.id===id);
-  if(idx>=0){ Object.assign(profiles[idx], updates); saveProfiles(profiles); }
-}
-
-function deleteProfile(id) {
-  const profiles = loadProfiles().filter(p=>p.id!==id);
-  saveProfiles(profiles);
-}
-
-// Active profile for this session
 let activeProfile = null;
 
-function renderProfileList() {
-  const list = document.getElementById('profile-list');
-  const profiles = loadProfiles();
-  list.innerHTML = '';
+// ── Load all profiles ──
+async function loadProfiles() {
+  try {
+    const { data, error } = await _sb.from('profiles').select('*').order('xp', { ascending:false });
+    if(error) throw error;
+    cacheProfiles(data);
+    return data;
+  } catch(e) {
+    console.warn('Supabase offline, using cache:', e.message);
+    return getCachedProfiles();
+  }
+}
 
-  if(profiles.length === 0){
-    list.innerHTML = '<div class="profile-empty">NO PROFILES YET — CREATE ONE</div>';
+// ── Create a profile ──
+async function createProfile(name) {
+  const row = { name:name.trim().toUpperCase()||'PLAYER', faction:null, stats:null,
+    ability:'surge', xp:0, wins:0, losses:0, round_wins:0, longest_streak:0 };
+  try {
+    const { data, error } = await _sb.from('profiles').insert(row).select().single();
+    if(error) throw error;
+    return data;
+  } catch(e) {
+    console.warn('Supabase offline, local fallback:', e.message);
+    const local = { ...row, id:'local_'+Date.now() };
+    const cached = getCachedProfiles(); cached.push(local); cacheProfiles(cached);
+    return local;
+  }
+}
+
+// ── Update a profile (fire-and-forget, non-blocking) ──
+function updateProfile(id, updates) {
+  const db = {};
+  if(updates.xp            !== undefined) db.xp             = updates.xp;
+  if(updates.wins          !== undefined) db.wins           = updates.wins;
+  if(updates.losses        !== undefined) db.losses         = updates.losses;
+  if(updates.roundWins     !== undefined) db.round_wins     = updates.roundWins;
+  if(updates.longestStreak !== undefined) db.longest_streak = updates.longestStreak;
+  if(updates.faction       !== undefined) db.faction        = updates.faction;
+  if(updates.stats         !== undefined) db.stats          = updates.stats;
+  if(updates.ability       !== undefined) db.ability        = updates.ability;
+  // Update local cache immediately
+  const cached = getCachedProfiles();
+  const ci = cached.findIndex(p=>p.id===id);
+  if(ci>=0){ Object.assign(cached[ci], db); cacheProfiles(cached); }
+  // Persist to Supabase async (don't block gameplay)
+  if(!id.startsWith('local_')){
+    _sb.from('profiles').update(db).eq('id',id)
+      .then(({error})=>{ if(error) console.warn('Supabase update:', error.message); });
+  }
+}
+
+// ── Delete a profile ──
+async function deleteProfile(id) {
+  cacheProfiles(getCachedProfiles().filter(p=>p.id!==id));
+  if(!id.startsWith('local_')) await _sb.from('profiles').delete().eq('id',id);
+}
+
+// ── Render profile list ──
+async function renderProfileList() {
+  const list = document.getElementById('profile-list');
+  list.innerHTML = '<div class="profile-empty">LOADING...</div>';
+  const profiles = await loadProfiles();
+  list.innerHTML = '';
+  if(!profiles.length){
+    list.innerHTML = '<div class="profile-empty">NO PROFILES YET — CREATE ONE BELOW</div>';
     return;
   }
-
   profiles.forEach(prof => {
     const card = document.createElement('div');
     card.className = 'profile-card';
     const faction = prof.faction ? FACTION[prof.faction].name : 'NO FACTION';
-    const fColor  = prof.faction ? FACTION[prof.faction].color : '#666';
+    const fColor  = prof.faction ? FACTION[prof.faction].color : '#555';
     card.innerHTML = `
       <div class="profile-card-info">
         <div class="profile-card-name">${prof.name}</div>
-        <div class="profile-card-meta" style="color:${fColor}">${faction} · W:${prof.wins} L:${prof.losses}</div>
+        <div class="profile-card-meta" style="color:${fColor}">${faction} · W:${prof.wins||0} L:${prof.losses||0} · 🔥${prof.longest_streak||0}</div>
       </div>
-      <div class="profile-card-xp">${prof.xp} XP</div>
-      <button class="profile-card-del" data-id="${prof.id}" title="Delete profile">✕</button>
-    `;
-    // Select profile
-    card.addEventListener('click', (ev) => {
+      <div class="profile-card-xp">${prof.xp||0} XP</div>
+      <button class="profile-card-del" title="Delete">✕</button>`;
+    card.addEventListener('click', ev => {
       if(ev.target.classList.contains('profile-card-del')) return;
-      activeProfile = prof;
-      // If they have a saved faction, go straight to stat build with it pre-loaded
+      activeProfile = { id:prof.id, name:prof.name, faction:prof.faction,
+        stats:prof.stats, ability:prof.ability||'surge', xp:prof.xp||0,
+        wins:prof.wins||0, losses:prof.losses||0,
+        roundWins:prof.round_wins||0, longestStreak:prof.longest_streak||0 };
       if(prof.faction){
         chooseFaction(prof.faction);
-        // Pre-load saved stats if available
         if(prof.stats){
           setTimeout(()=>{
             STAT_DEFS.forEach(def=>{
-              const val = prof.stats[def.key] || def.defaultVal;
-              GS.playerStats[def.key] = val;
-              const sl = document.querySelector('[data-stat="'+def.key+'"]');
-              if(sl) sl.value = val;
-              const vl = document.getElementById('val-'+def.key);
-              if(vl) vl.textContent = val;
+              const val=prof.stats[def.key]||def.defaultVal;
+              GS.playerStats[def.key]=val;
+              const sl=document.querySelector('[data-stat="'+def.key+'"]');
+              if(sl) sl.value=val;
+              const vl=document.getElementById('val-'+def.key);
+              if(vl) vl.textContent=val;
             });
             updatePointsLeft();
           }, 50);
         }
-      } else {
-        renderProfileList();
-showScreen('profile');
-      }
+      } else { showScreen('faction'); }
     });
-    // Delete button
-    card.querySelector('.profile-card-del').addEventListener('click', (ev) => {
+    card.querySelector('.profile-card-del').addEventListener('click', ev => {
       ev.stopPropagation();
-      if(confirm('Delete profile "' + prof.name + '"?')){
-        deleteProfile(prof.id);
-        renderProfileList();
+      if(confirm('Delete "'+prof.name+'"? Cannot be undone.')){
+        deleteProfile(prof.id); renderProfileList();
       }
     });
     list.appendChild(card);
   });
 }
 
-// New profile form
-document.getElementById('btn-new-profile').addEventListener('click', () => {
-  document.getElementById('new-profile-form').style.display = 'block';
-  document.getElementById('btn-new-profile').style.display = 'none';
+// ── New profile form ──
+document.getElementById('btn-new-profile').addEventListener('click', ()=>{
+  document.getElementById('new-profile-form').style.display='block';
+  document.getElementById('btn-new-profile').style.display='none';
   document.getElementById('profile-name-input').focus();
 });
-
-document.getElementById('btn-cancel-profile').addEventListener('click', () => {
-  document.getElementById('new-profile-form').style.display = 'none';
-  document.getElementById('btn-new-profile').style.display = 'block';
-  document.getElementById('profile-name-input').value = '';
+document.getElementById('btn-cancel-profile').addEventListener('click', ()=>{
+  document.getElementById('new-profile-form').style.display='none';
+  document.getElementById('btn-new-profile').style.display='block';
+  document.getElementById('profile-name-input').value='';
 });
-
-document.getElementById('btn-create-profile').addEventListener('click', () => {
-  const name = document.getElementById('profile-name-input').value.trim();
+document.getElementById('btn-create-profile').addEventListener('click', async ()=>{
+  const name=document.getElementById('profile-name-input').value.trim();
   if(!name){ document.getElementById('profile-name-input').focus(); return; }
-  const prof = createProfile(name);
-  activeProfile = prof;
-  document.getElementById('new-profile-form').style.display = 'none';
-  document.getElementById('btn-new-profile').style.display = 'block';
-  document.getElementById('profile-name-input').value = '';
-  showScreen('faction'); // New profile — pick faction first
+  const btn=document.getElementById('btn-create-profile');
+  btn.textContent='CREATING...'; btn.disabled=true;
+  const prof = await createProfile(name);
+  activeProfile = { id:prof.id, name:prof.name, faction:null, stats:null,
+    ability:'surge', xp:0, wins:0, losses:0, roundWins:0, longestStreak:0 };
+  document.getElementById('new-profile-form').style.display='none';
+  document.getElementById('btn-new-profile').style.display='block';
+  btn.textContent='CREATE →'; btn.disabled=false;
+  document.getElementById('profile-name-input').value='';
+  showScreen('faction');
+});
+document.getElementById('profile-name-input').addEventListener('keydown', e=>{
+  if(e.key==='Enter')  document.getElementById('btn-create-profile').click();
+  if(e.key==='Escape') document.getElementById('btn-cancel-profile').click();
 });
 
-document.getElementById('profile-name-input').addEventListener('keydown', e => {
-  if(e.key === 'Enter') document.getElementById('btn-create-profile').click();
-  if(e.key === 'Escape') document.getElementById('btn-cancel-profile').click();
-});
-
-// ── Save profile stats after entering arena
-const _origConfirmStats = document.getElementById('confirm-stats').onclick;
-document.getElementById('confirm-stats').addEventListener('click', () => {
+// ── Save build on entering arena ──
+document.getElementById('confirm-stats').addEventListener('click', ()=>{
   if(activeProfile){
-    updateProfile(activeProfile.id, {
-      faction: GS.faction,
-      stats: {...GS.playerStats}
-    });
+    updateProfile(activeProfile.id, { faction:GS.faction, stats:{...GS.playerStats} });
+    activeProfile.faction=GS.faction; activeProfile.stats={...GS.playerStats};
   }
 });
 
-// ── Save XP/wins/losses after each match ends
+// ── Save match result ──
 function saveMatchResult(won) {
   if(!activeProfile) return;
-  const updates = {
-    xp:      (activeProfile.xp || 0) + (GS.player?.xp || 0),
-    wins:    (activeProfile.wins || 0) + (won ? 1 : 0),
-    losses:  (activeProfile.losses || 0) + (won ? 0 : 1),
-    roundWins: (activeProfile.roundWins || 0) + (GS.playerRoundWins || 0),
-    longestStreak: Math.max(activeProfile.longestStreak || 0, GS.consecutiveRounds || 0),
-    faction: GS.faction,
-    stats:   GS.playerStats ? {...GS.playerStats} : activeProfile.stats
-  };
-  updateProfile(activeProfile.id, updates);
-  // Refresh local reference so subsequent saves accumulate correctly
-  const refreshed = loadProfiles().find(p=>p.id===activeProfile.id);
-  if(refreshed) activeProfile = refreshed;
+  activeProfile.xp            = (activeProfile.xp||0)           + (GS.player?.xp||0);
+  activeProfile.wins          = (activeProfile.wins||0)          + (won?1:0);
+  activeProfile.losses        = (activeProfile.losses||0)        + (won?0:1);
+  activeProfile.roundWins     = (activeProfile.roundWins||0)     + (GS.playerRoundWins||0);
+  activeProfile.longestStreak = Math.max(activeProfile.longestStreak||0, GS.consecutiveRounds||0);
+  updateProfile(activeProfile.id, {
+    xp:activeProfile.xp, wins:activeProfile.wins, losses:activeProfile.losses,
+    roundWins:activeProfile.roundWins, longestStreak:activeProfile.longestStreak,
+    faction:GS.faction, stats:GS.playerStats?{...GS.playerStats}:activeProfile.stats
+  });
 }
 
 // ── LOOP ──
